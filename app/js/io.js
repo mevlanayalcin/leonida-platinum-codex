@@ -1,11 +1,17 @@
-import { el } from './detail.js';
-import { state, replaceProgress, saveProgress } from './state.js';
+// Export and import in one opaque right-pane view: a read-only JSON preview with a real
+// download, and a validated file/paste restore. Nothing is uploaded and nothing is fetched.
+import { el } from './dom.js';
+import { state, setPane, replaceProgress } from './state.js';
 
-export function buildPayload(doc) {
+const FILENAME = 'leonida-platinum-progress.json';
+let draft = '';
+let message = { tone: '', text: 'Paste a backup or choose a file; nothing changes until you restore.' };
+
+export function exportProgress(doc) {
   const earned = [...state.earned].sort((a, b) => a - b);
   return {
     app: 'leonida-platinum-codex',
-    version: 1,
+    version: 2,
     game: doc.game,
     platform: doc.platform,
     exportedAt: new Date().toISOString(),
@@ -16,7 +22,7 @@ export function buildPayload(doc) {
   };
 }
 
-export function parseBackup(text, doc) {
+export function importProgress(text, doc) {
   const raw = text.trim();
   if (!raw) return { ok: false, error: 'Nothing to import yet.' };
   let payload;
@@ -42,7 +48,7 @@ export function parseBackup(text, doc) {
     format = 'Legacy checklist array';
     payload.forEach(add);
   } else if (payload && typeof payload === 'object' && Array.isArray(payload.earned)) {
-    format = payload.app === 'leonida-platinum-codex' ? 'Codex v1 backup' : 'JSON backup object';
+    format = payload.app === 'leonida-platinum-codex' ? 'Codex backup' : 'JSON backup object';
     payload.earned.forEach(add);
     if (payload.steps && typeof payload.steps === 'object') {
       for (const [key, list] of Object.entries(payload.steps)) {
@@ -56,12 +62,8 @@ export function parseBackup(text, doc) {
     return { ok: false, error: 'Expected a Codex backup or a JSON array of trophy names.' };
   }
 
-  if (ids.size === 0 && unknown === 0) {
-    return { ok: false, error: 'No earned trophies found in that backup.' };
-  }
-  if (ids.size === 0) {
-    return { ok: false, error: `None of the ${unknown} entries matched an official trophy.` };
-  }
+  if (ids.size === 0 && unknown === 0) return { ok: false, error: 'No earned trophies found in that backup.' };
+  if (ids.size === 0) return { ok: false, error: `None of the ${unknown} entries matched an official trophy.` };
   return { ok: true, ids: [...ids].sort((a, b) => a - b), steps, format, unknown, total: doc.trophies.length };
 }
 
@@ -70,30 +72,34 @@ function downloadJSON(text) {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
   anchor.href = url;
-  anchor.download = 'leonida-platinum-progress.json';
+  anchor.download = FILENAME;
   document.body.append(anchor);
   anchor.click();
   anchor.remove();
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
-function exportPanel(doc, body) {
-  const payload = buildPayload(doc);
+function exportCard(doc) {
+  const payload = exportProgress(doc);
   const json = JSON.stringify(payload, null, 2);
+  const card = el('section', 'iocard');
+  const title = el('div', 'seclabel');
+  title.append(el('span', null, 'Export progress'), el('span', null, 'read-only preview'));
+  card.append(title);
 
-  const sum = el('div', 'iosum');
-  sum.append(
+  const summary = el('div', 'dmeta');
+  summary.append(
     el('span', 'pill teal', `${payload.totals.earned} earned`),
     el('span', 'pill', `${payload.totals.trophies - payload.totals.earned} unearned`),
-    el('span', 'pill', `${Object.keys(payload.steps).length} step lists`),
-    el('span', 'pill gold', 'localStorage → file'),
+    el('span', 'pill gold', `${Object.keys(payload.steps).length} step lists`),
+    el('span', 'pill', 'localStorage'),
   );
 
-  const area = el('textarea', 'iojson');
-  area.readOnly = true;
-  area.spellcheck = false;
-  area.value = json;
-  area.setAttribute('aria-label', 'Exported progress JSON preview');
+  const preview = el('textarea', 'pastebox jsonpreview');
+  preview.readOnly = true;
+  preview.spellcheck = false;
+  preview.value = json;
+  preview.setAttribute('aria-label', 'Exported progress JSON preview');
 
   const actions = el('div', 'ioactions');
   const download = el('button', 'btn primary', 'Download .json');
@@ -102,59 +108,60 @@ function exportPanel(doc, body) {
   const copy = el('button', 'btn', 'Copy JSON');
   copy.type = 'button';
   copy.addEventListener('click', () => {
-    area.select();
+    preview.select();
     const done = () => { copy.textContent = 'Copied'; };
     if (navigator.clipboard?.writeText) navigator.clipboard.writeText(json).then(done).catch(() => { document.execCommand('copy'); done(); });
     else { document.execCommand('copy'); done(); }
   });
   actions.append(download, copy);
-  body.append(sum, area, actions, el('p', 'ionote', 'Written on this device · nothing is uploaded'));
+  card.append(summary, preview, actions, el('p', 'gnote', 'Written on this device with a Blob URL · no upload.'));
+  return card;
 }
 
-function importPanel(doc, body) {
+function importCard(doc) {
+  const card = el('section', 'iocard');
+  const title = el('div', 'seclabel');
+  title.append(el('span', null, 'Import progress'), el('span', null, 'validate, then restore'));
+  card.append(title);
+
   const drop = el('label', 'drop');
   drop.append(document.createTextNode('Choose a .json backup or drop it here'));
-  const file = el('input');
+  const file = el('input', 'hidden');
   file.type = 'file';
   file.accept = 'application/json,.json';
-  file.className = 'hidden';
   drop.append(file);
-  body.append(drop);
 
-  const area = el('textarea', 'iojson');
-  area.placeholder = '…or paste the backup JSON here';
+  const area = el('textarea', 'pastebox importbox');
+  area.value = draft;
+  area.placeholder = '…or paste backup JSON here';
   area.spellcheck = false;
   area.setAttribute('aria-label', 'Backup JSON to import');
-  area.style.height = '158px';
 
-  const status = el('div', 'iostatus', 'Paste a backup or choose a file; nothing changes until you confirm.');
-  const actions = el('div', 'importrow');
-  const apply = el('button', 'btn primary', 'Validate & import');
-  apply.type = 'button';
-  apply.disabled = true;
+  const status = el('div', `iostatus${message.tone ? ` ${message.tone}` : ' gnote'}`, message.text);
+  status.setAttribute('role', 'status');
+
+  const actions = el('div', 'ioactions');
+  const restore = el('button', 'btn primary', 'Restore JSON');
+  restore.type = 'button';
+  restore.disabled = !importProgress(draft, doc).ok;
+  const useCurrent = el('button', 'btn', 'Paste current export');
+  useCurrent.type = 'button';
 
   const evaluate = () => {
-    const result = parseBackup(area.value, doc);
-    status.className = 'iostatus';
-    apply.disabled = !result.ok;
-    if (!area.value.trim()) {
-      status.textContent = 'Paste a backup or choose a file; nothing changes until you confirm.';
-      return;
+    draft = area.value;
+    const result = importProgress(draft, doc);
+    status.className = 'iostatus gnote';
+    restore.disabled = !result.ok;
+    if (!draft.trim()) {
+      message = { tone: '', text: 'Paste a backup or choose a file; nothing changes until you restore.' };
+    } else if (!result.ok) {
+      message = { tone: 'err', text: result.error };
+    } else {
+      const ignored = result.unknown ? ` · ${result.unknown} ignored` : '';
+      message = { tone: 'ok', text: `Valid ${result.format} · ${result.ids.length} of ${result.total} trophies · ${Object.keys(result.steps).length} step lists${ignored} — ready to restore.` };
     }
-    if (!result.ok) {
-      status.classList.add('err');
-      status.textContent = result.error;
-      return;
-    }
-    status.classList.add('ok');
-    const ignored = result.unknown ? ` · ${result.unknown} ignored` : '';
-    status.textContent = `Valid ${result.format} · ${result.ids.length} of ${result.total} trophies · ${Object.keys(result.steps).length} step lists${ignored}`;
-    apply.onclick = () => {
-      replaceProgress(result.ids, result.steps);
-      status.className = 'iostatus ok';
-      status.innerHTML = `Imported <b>${result.ids.length} of ${result.total}</b> trophies. The tracker, counters and roadmap updated immediately.`;
-      apply.disabled = true;
-    };
+    status.className = `iostatus${message.tone ? ` ${message.tone}` : ' gnote'}`;
+    status.textContent = message.text;
   };
 
   area.addEventListener('input', evaluate);
@@ -175,32 +182,38 @@ function importPanel(doc, body) {
     evaluate();
   });
 
-  actions.append(apply, el('span', 'ionote', 'Replaces current ticks'));
-  body.append(area, actions, status);
+  useCurrent.addEventListener('click', () => {
+    area.value = JSON.stringify(exportProgress(doc), null, 2);
+    evaluate();
+  });
+
+  restore.addEventListener('click', () => {
+    const result = importProgress(area.value, doc);
+    if (!result.ok) { evaluate(); return; }
+    draft = '';
+    message = { tone: 'ok', text: `Restored ${result.ids.length} of ${result.total} trophies. The checklist, counters and roadmap updated immediately.` };
+    replaceProgress(result.ids, result.steps);
+  });
+
+  actions.append(restore, useCurrent);
+  card.append(drop, area, actions, status, el('p', 'gnote', 'Replaces current ticks · checked steps travel with the backup.'));
+  return card;
 }
 
-export function renderIO(doc) {
-  const body = document.getElementById('io-body');
-  const tabs = document.querySelectorAll('.iotabs button');
-  body.replaceChildren();
-  tabs.forEach((tab) => tab.classList.toggle('active', tab.dataset.io === state.io));
-  if (state.io === 'import') importPanel(doc, body);
-  else exportPanel(doc, body);
-}
+export function renderBackupPanel(host, doc) {
+  const wrap = el('div', 'iopane');
+  const head = el('div', 'iohead');
+  const intro = el('div');
+  intro.append(el('p', 'eyebrow', 'Local backup · portable JSON'));
+  intro.append(el('h2', null, 'Export & Import'));
+  intro.append(el('p', 'gnote', 'No account and no upload: progress stays in this browser until you download it.'));
+  const close = el('button', 'btn', '← Back to guide');
+  close.type = 'button';
+  close.addEventListener('click', () => setPane('detail'));
+  head.append(intro, close);
 
-export function setIOTab(doc, tab) {
-  state.io = tab;
-  renderIO(doc);
-}
-
-export function openIO(doc, tab) {
-  state.io = tab;
-  document.getElementById('backdrop').classList.remove('hidden');
-  renderIO(doc);
-  document.getElementById('io-close').focus({ preventScroll: true });
-}
-
-export function closeIO() {
-  document.getElementById('backdrop').classList.add('hidden');
-  saveProgress();
+  wrap.append(head, exportCard(doc), importCard(doc));
+  host.replaceChildren(wrap);
+  host.scrollTop = 0;
+  if (state.ioMode === 'import') host.querySelector('.importbox')?.focus({ preventScroll: true });
 }

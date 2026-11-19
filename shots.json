@@ -1,6 +1,6 @@
 [
-  { "file": "01-cover-tracker-and-guide.jpg", "path": "/", "view": "tracker with the Positive Mental Attitude guide open, 8 earned", "viewport": { "width": 1280, "height": 800 } },
-  { "file": "02-platinum-roadmap-missables.jpg", "path": "/", "view": "Platinum Roadmap tab: three stages, requirements and the 11-row missable watchlist", "viewport": { "width": 1280, "height": 800 } },
-  { "file": "03-spoiler-shield-and-io.jpg", "path": "/", "view": "Spoiler Mode on over the list with the export drawer open", "viewport": { "width": 1280, "height": 800 } },
-  { "file": "04-collectibles-activities-detail.jpg", "path": "/", "view": "Collectibles + Activities filtered, grade sort, A Long Road detail", "viewport": { "width": 1280, "height": 800 } }
+  { "file": "01-cover-tracker-and-guide.jpg", "path": "/", "view": "Cover: the checklist from #1 Vice Got a Price! (Platinum), 8 earned, with Positive Mental Attitude open beside it: missable callout, inline citations, clickable source chips and 2/5 steps", "viewport": { "width": 1280, "height": 800 } },
+  { "file": "02-platinum-roadmap-missables.jpg", "path": "/", "view": "Platinum Roadmap: three stages with the official counts and inline PowerPyx / Exophase / IGN / PSNProfiles citations, plus the Missable 1 and Chapter Saves 10 guardrail panel", "viewport": { "width": 1280, "height": 800 } },
+  { "file": "03-spoiler-shield-and-io.jpg", "path": "/", "view": "Spoiler Mode on over the list, with the full-height Export + Import pane: JSON preview, Download .json, file/paste restore and a green validated status (no detail bleed-through)", "viewport": { "width": 1280, "height": 800 } },
+  { "file": "04-collectibles-activities-detail.jpg", "path": "/", "view": "Collectibles + Activities filter (42 shown) with A Long Road selected: 100% checklist counters, cited guide, source chips and 3/5 walkthrough steps ticked", "viewport": { "width": 1280, "height": 800 } }
 ]
