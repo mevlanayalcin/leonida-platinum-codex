@@ -21,7 +21,7 @@ export function countFor(id, trophies, earned) {
   return trophies.filter((t) => t.category === id).length;
 }
 
-export function filterTrophies(trophies, state) {
+export function filterByKind(trophies, state) {
   const query = state.query.trim().toLowerCase();
   return trophies.filter((t) => {
     if (state.cats.size && !state.cats.has(t.category)) return false;

@@ -7,7 +7,7 @@ const FILENAME = 'leonida-platinum-progress.json';
 let draft = '';
 let message = { tone: '', text: 'Paste a backup or choose a file; nothing changes until you restore.' };
 
-export function exportProgress(doc) {
+export function exportProgressBackup(doc) {
   const earned = [...state.earned].sort((a, b) => a - b);
   return {
     app: 'leonida-platinum-codex',
@@ -22,7 +22,7 @@ export function exportProgress(doc) {
   };
 }
 
-export function importProgress(text, doc) {
+export function importProgressBackup(text, doc) {
   const raw = text.trim();
   if (!raw) return { ok: false, error: 'Nothing to import yet.' };
   let payload;
@@ -80,7 +80,7 @@ function downloadJSON(text) {
 }
 
 function exportCard(doc) {
-  const payload = exportProgress(doc);
+  const payload = exportProgressBackup(doc);
   const json = JSON.stringify(payload, null, 2);
   const card = el('section', 'iocard');
   const title = el('div', 'seclabel');
@@ -143,13 +143,13 @@ function importCard(doc) {
   const actions = el('div', 'ioactions');
   const restore = el('button', 'btn primary', 'Restore JSON');
   restore.type = 'button';
-  restore.disabled = !importProgress(draft, doc).ok;
+  restore.disabled = !importProgressBackup(draft, doc).ok;
   const useCurrent = el('button', 'btn', 'Paste current export');
   useCurrent.type = 'button';
 
   const evaluate = () => {
     draft = area.value;
-    const result = importProgress(draft, doc);
+    const result = importProgressBackup(draft, doc);
     status.className = 'iostatus gnote';
     restore.disabled = !result.ok;
     if (!draft.trim()) {
@@ -183,12 +183,12 @@ function importCard(doc) {
   });
 
   useCurrent.addEventListener('click', () => {
-    area.value = JSON.stringify(exportProgress(doc), null, 2);
+    area.value = JSON.stringify(exportProgressBackup(doc), null, 2);
     evaluate();
   });
 
   restore.addEventListener('click', () => {
-    const result = importProgress(area.value, doc);
+    const result = importProgressBackup(area.value, doc);
     if (!result.ok) { evaluate(); return; }
     draft = '';
     message = { tone: 'ok', text: `Restored ${result.ids.length} of ${result.total} trophies. The checklist, counters and roadmap updated immediately.` };
@@ -217,3 +217,18 @@ export function renderBackupPanel(host, doc) {
   host.scrollTop = 0;
   if (state.ioMode === 'import') host.querySelector('.importbox')?.focus({ preventScroll: true });
 }
+
+// The backup pane's own styles travel with it and join the page on first visit.
+const BACKUP_CSS = '.iopane{display:flex;flex-direction:column;gap:9px}'
+  + '.iohead{display:flex;justify-content:space-between}'
+  + '.iohead h2{margin:0 0 4px;font-size:20px;font-weight:800;letter-spacing:-.026em;line-height:1.16}'
+  + '.iocard{border:1px solid var(--line);background:#0f1829;padding:10px 11px;border-radius:10px}'
+  + '.pastebox{width:100%;resize:none;padding:8px 9px;border:1px solid var(--line);border-radius:7px;background:#080d17;color:#bde6df;font-family:monospace;font-size:10px;line-height:1.45}'
+  + '.jsonpreview{height:118px}.importbox{height:92px}'
+  + '.ioactions{display:flex;align-items:center;gap:6px;margin-top:7px}.ioactions .btn{height:30px;padding:0 11px;font-size:11px}'
+  + '.drop{display:flex;align-items:center;justify-content:center;height:34px;margin-bottom:6px;border:1px dashed #ffffff3d;border-radius:8px;background:#182235;font-size:10.6px;color:var(--muted);cursor:pointer}'
+  + '.iostatus.gnote{margin-top:6px}'
+  + '.iostatus.ok,.iostatus.err{margin-top:6px;padding:6px 8px;border:1px solid;border-radius:6px;font-size:10px;line-height:1.45}'
+  + '.iostatus.ok{border-color:#37e0c866;background:#37e0c817;color:#b6f8ef}'
+  + '.iostatus.err{border-color:#ff4d8d73;background:#ff4d8d1a;color:#ffc2d5}';
+document.head.append(Object.assign(document.createElement('style'), { textContent: BACKUP_CSS }));

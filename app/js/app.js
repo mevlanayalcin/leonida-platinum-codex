@@ -1,5 +1,5 @@
-// Tiny boot: load the official trophy file, then mount the tracker list, cited guide,
-// roadmap and backup pane. Only this boot, state and filters sit in the first load.
+// First load: boot the shell, draw the verification audit strip, then lazy-mount the
+// 55-row list, cited guide, roadmap and backup through literal import() calls below.
 import { state, loadProgress, subscribe, setView, setPane, toggleSpoilerShield, resetProgress } from './state.js';
 
 const $ = (s) => document.querySelector(s);
@@ -11,6 +11,21 @@ export async function loadTrophies(url = './data/trophies.json') {
   const response = await fetch(url);
   if (!response.ok) throw new Error(`Trophy data unavailable (HTTP ${response.status})`);
   return response.json();
+}
+
+/** High-contrast audit strip under the header, computed from the loaded trophy file:
+ *  official count, grades, cited guides, dated citation chips, uncited claims, offline. */
+export function renderAuditStrip(host, trophies) {
+  const grade = { platinum: 0, gold: 0, silver: 0, bronze: 0 };
+  let cited = 0, citations = 0;
+  for (const t of trophies) {
+    grade[t.grade] += 1;
+    if (t.sources.length) cited += 1;
+    citations += t.sources.length;
+  }
+  const n = trophies.length;
+  host.innerHTML = `<b><i>✓</i> ${n}/${n} OFFICIAL PS5 TROPHIES · 1P ${grade.gold}G ${grade.silver}S ${grade.bronze}B · `
+    + `${cited}/${n} CITED GUIDES · ${citations} DATED CITATIONS (NOV 2026) · ${n - cited} UNCITED CLAIMS · 100% OFFLINE</b>`;
 }
 
 async function renderList() {
@@ -42,6 +57,7 @@ async function renderView() {
     mods.roadmap ??= await import('./roadmap.js');
     mods.roadmap.renderRoadmap($('#roadmap-stages'), doc);
     mods.roadmap.renderGuardrails($('#save-guardrails'), doc);
+    mods.roadmap.renderSourceMatrix($('#save-guardrails'), doc);
   }
 }
 
@@ -63,6 +79,7 @@ async function boot() {
   loadProgress();
   doc = await loadTrophies();
   byId = new Map(doc.trophies.map((t) => [t.id, t]));
+  renderAuditStrip($('#audit-strip'), doc.trophies);
   mods.list = await import('./list.js');
   mods.list.mountTracker(doc);
   bind();

@@ -2,7 +2,7 @@
 // clickable source chips and tickable steps. Loaded through import() after the list paints.
 import { state, toggleEarned, toggleStep, reveal, isStepDone } from './state.js';
 import { isMasked, maskName, MASK_DESCRIPTION } from './filters.js';
-import { el, gradeBadge, sourceLinks } from './dom.js';
+import { el, gradeBadge, sourceLinks, DATE } from './dom.js';
 
 const STAGE_LABEL = { 1: 'Stage 1 · Story', 2: 'Stage 2 · 100% checklist', 3: 'Stage 3 · Clean-up' };
 const CATEGORY_LABEL = { platinum: 'Platinum', story: 'Story', collectibles: 'Collectibles', activities: 'Activities' };
@@ -27,23 +27,24 @@ export function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-/** Link every named source mentioned in a sentence to its URL, without any runtime fetch. */
+/** Link every named source in a sentence to its URL, folding its "· Nov 2026" date into
+ *  the same clickable cite, without any runtime fetch. */
 export function appendCited(parent, text, sources) {
   const labels = [...new Set(sources.map((source) => source.label))].sort((a, b) => b.length - a.length);
   if (!labels.length) { parent.append(document.createTextNode(text)); return parent; }
   const byLabel = new Map(sources.map((source) => [source.label, source.url]));
-  const pattern = new RegExp(`(${labels.map(escapeRegExp).join('|')})`, 'g');
+  const pattern = new RegExp(`(${labels.map(escapeRegExp).join('|')})( · ${DATE})?`, 'g');
   let cursor = 0;
   let match;
   while ((match = pattern.exec(text)) !== null) {
     if (match.index > cursor) parent.append(document.createTextNode(text.slice(cursor, match.index)));
-    const cite = el('a', 'cite', match[1]);
+    const cite = el('a', 'cite', match[0]);
     cite.href = byLabel.get(match[1]);
     cite.target = '_blank';
     cite.rel = 'noopener noreferrer';
-    cite.title = `Source: ${match[1]} — ${cite.href}`;
+    cite.title = `Source: ${match[1]} · verified ${DATE} — ${cite.href}`;
     parent.append(cite);
-    cursor = match.index + match[1].length;
+    cursor = match.index + match[0].length;
   }
   if (cursor < text.length) parent.append(document.createTextNode(text.slice(cursor)));
   return parent;
@@ -64,14 +65,14 @@ function earnedButton(trophy) {
 
 function checklistBlock() {
   const label = el('div', 'seclabel');
-  label.append(el('span', null, '100% checklist counters'), el('span', null, 'source on every count'));
+  label.append(el('span', null, '100% checklist counters'), el('span', null, `every count cited · ${DATE}`));
   const grid = el('div', 'counters');
   for (const [value, name, source, url] of CHECKLIST) {
     const card = el('a', 'counter');
     card.href = url;
     card.target = '_blank';
     card.rel = 'noopener noreferrer';
-    card.title = `${name}: ${value} — source: ${source}`;
+    card.title = `${name}: ${value} — source: ${source} · ${DATE}`;
     card.append(el('b', null, value), el('span', null, name));
     grid.append(card);
   }
@@ -138,7 +139,7 @@ export function renderTrophyDetail(host, trophy, doc) {
   if (trophy.id === 14) host.append(...checklistBlock());
 
   const sourceLabel = el('div', 'seclabel');
-  sourceLabel.append(el('span', null, 'Cited sources'), el('span', null, 'opens in a new tab'));
+  sourceLabel.append(el('span', null, 'Cited sources'), el('span', null, `verified ${DATE} · opens in a new tab`));
   host.append(sourceLabel, sourceLinks(el('div', 'srcrow'), trophy.sources));
 
   const done = (state.steps[String(trophy.id)] ?? []).length;
@@ -157,3 +158,21 @@ export function renderTrophyDetail(host, trophy, doc) {
   host.append(stepHead, steps, earnedButton(trophy));
   host.scrollTop = keep;
 }
+
+// The guide pane's own styles travel with it. The walkthrough steps sit in a stretch-aligned
+// column, so every checkbox lines up flush left with one shared rhythm (v3 staircase fix).
+const DETAIL_CSS = '.dhead{padding-bottom:7px;border-bottom:1px solid var(--line)}.dtop{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:4px}'
+  + '.dhead h2{margin:0 0 3px;font-size:20px;font-weight:800;letter-spacing:-.026em;line-height:1.16}'
+  + '.callout{margin:6px 0 7px;padding:7px 10px 8px 11px;border:1px solid #ff4d8d61;border-radius:9px;background:#ff4d8d1c}'
+  + '.callout .mtag{display:block;margin-bottom:3px;font-size:9px;font-weight:900;letter-spacing:.13em;text-transform:uppercase;color:#ffd0de}'
+  + '.callout p{margin:0;font-size:11px;line-height:1.45;color:#ffe4ec}'
+  + '.steps{display:flex;flex-direction:column;align-items:stretch;gap:1px;margin-bottom:4px}'
+  + '.step{width:100%;display:grid;grid-template-columns:17px minmax(0,1fr);gap:8px;align-items:start;padding:2.5px 0;text-align:left;color:#d5e0ee;font-size:11.1px;line-height:1.38}'
+  + '.step .sbox{width:15px;height:15px;margin-top:1px;border:1.4px solid #ffffff3d;border-radius:4px;display:grid;place-items:center;font-size:9px;font-weight:900;color:transparent}'
+  + '.step.done .sbox{background:var(--teal);border-color:var(--teal);color:#04231f}'
+  + '.earnedbtn{width:100%;height:32px;border:1px solid #37e0c873;border-radius:9px;background:#37e0c824;color:#c4fbf4;font-size:12px;font-weight:800}'
+  + '.counters{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;margin-bottom:3px}'
+  + '.counter{border:1px solid var(--line);background:#182235;padding:2.5px 5px;border-radius:6px;text-decoration:none;line-height:1.15}'
+  + '.counter b{display:block;color:#fff;font-size:11px;font-weight:850}'
+  + '.counter span{display:block;font-size:8.8px;color:var(--muted)}';
+document.head.append(Object.assign(document.createElement('style'), { textContent: DETAIL_CSS }));

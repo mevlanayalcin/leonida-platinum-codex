@@ -1,5 +1,5 @@
 // Browser-local tracker state: progress, checked steps, selection and the spoiler
-// setting persist in localStorage; nothing is sent anywhere.
+// setting persist in localStorage; nothing leaves this browser.
 const KEY = 'lpc.v1';
 
 export const state = {

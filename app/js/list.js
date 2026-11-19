@@ -1,7 +1,7 @@
 // The tracker list core: progress header, truthful filter pills and all 55 rows.
 // Loaded by app.js right after the trophy data, so the first HTML/CSS paint stays tiny.
 import { state, emit, toggleEarned, select, reveal, setPane } from './state.js';
-import { FILTERS, filterTrophies, countFor, isMasked, maskName } from './filters.js';
+import { FILTERS, filterByKind, countFor, isMasked, maskName } from './filters.js';
 
 const $ = (s) => document.querySelector(s);
 const ui = {
@@ -60,7 +60,7 @@ function rowHTML(t) {
 }
 
 function renderList() {
-  const shown = filterTrophies(doc.trophies, state);
+  const shown = filterByKind(doc.trophies, state);
   const scroll = ui.list.scrollTop;
   ui.list.innerHTML = shown.length ? shown.map(rowHTML).join('') : emptyHTML();
   ui.list.scrollTop = scroll;
@@ -122,3 +122,15 @@ export function mountTracker(data) {
     if (event.key === '/' && event.target.tagName !== 'INPUT') { event.preventDefault(); ui.search.focus(); }
   };
 }
+
+// The list's own styles travel with it and join the page once, keeping the first-load stylesheet small.
+const LIST_CSS = '.rowmeta{display:flex;align-items:center;gap:5px}'
+  + '.row{display:grid;grid-template-columns:23px minmax(0,1fr) auto;gap:11px;align-items:center;padding:8px 12px;border-bottom:1px solid var(--line2);cursor:pointer}'
+  + '.row.sel{background:#ff4d8d1f}'
+  + '.tick{width:21px;height:21px;padding:0;border:1.5px solid #ffffff3d;border-radius:6px;background:#0a1220;display:grid;place-items:center;font-size:11px;font-weight:900;color:transparent}'
+  + '.row.earned .tick{background:var(--teal);border-color:var(--teal);color:#04231f}'
+  + '.rowmain{min-width:0}.rowname{display:flex;gap:7px;font-size:14px;font-weight:680;white-space:nowrap}'
+  + '.rowdesc{font-size:11.8px;color:var(--muted);white-space:nowrap}'
+  + '.redacted{display:inline-flex;align-items:center;gap:6px;color:#ffb3ca;font-weight:750}'
+  + '.redacted i{width:72px;height:8px;border-radius:2px;background:#ff4d8d66}';
+document.head.append(Object.assign(document.createElement('style'), { textContent: LIST_CSS }));
