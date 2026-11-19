@@ -3,23 +3,92 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GTA VI trophy checklist</title>
-<link rel="stylesheet" href="style.css">
+<title>Leonida Platinum Codex — GTA VI Trophy Guide &amp; Tracker</title>
+<meta name="description" content="Offline GTA VI trophy tracker: 55 official PS5 trophies, cited walkthroughs, roadmap, spoiler mode.">
+<meta name="color-scheme" content="dark">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23ff4d8d'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<header>
-  <h1>GTA VI trophy checklist</h1>
-  <p id="progress">0 of 55 earned</p>
+<header class="masthead">
+  <a class="brand" href="#" id="brand" aria-label="Leonida Platinum Codex home">
+    <span class="mark" aria-hidden="true">VI</span>
+    <span class="brandtext">
+      <span class="eyebrow">55 trophies · 100% offline · 1 playthrough</span>
+      <h1>GTA VI Trophy Guide <em>&amp; Tracker</em></h1>
+    </span>
+  </a>
+  <div class="mastactions">
+    <button id="spoiler-btn" class="toggle" type="button" aria-pressed="false" title="Mask story and hidden trophies until earned">
+      <span class="switch" aria-hidden="true"><i></i></span>
+      <span class="tlabel">Spoiler Mode</span>
+      <span class="tstate" id="spoiler-state">Off</span>
+    </button>
+    <button id="export-btn" class="btn primary" type="button">Export</button>
+    <button id="import-btn" class="btn" type="button">Import</button>
+    <button id="reset-btn" class="btn quiet" type="button" title="Clear all local progress">Reset</button>
+  </div>
 </header>
-<div class="controls">
-  <label>Grade <select id="grade"><option value="all">All</option><option value="platinum">Platinum</option><option value="gold">Gold</option><option value="silver">Silver</option><option value="bronze">Bronze</option></select></label>
-  <button id="export" type="button">Export progress</button>
-  <label class="import">Import progress <input id="import" type="file" accept="application/json"></label>
+
+<div class="statusrail">
+  <nav class="tabs" aria-label="Views">
+    <button class="tab active" data-view="tracker" type="button">Tracker</button>
+    <button class="tab" data-view="roadmap" type="button">Platinum Roadmap</button>
+  </nav>
+  <div class="gradebar" id="gradebar"></div>
+  <div class="progressbox">
+    <div class="pline"><strong id="ptext">0 of 55 earned</strong><span id="ppct">0%</span></div>
+    <div class="pbar" role="progressbar" aria-label="Overall completion"><i id="pfill"></i></div>
+  </div>
 </div>
-<table>
-  <thead><tr><th>Earned</th><th>Trophy</th><th>Grade</th><th>How to get it</th></tr></thead>
-  <tbody id="rows"></tbody>
-</table>
-<script type="module" src="app.js"></script>
+
+<main>
+  <section id="tracker-view" class="view grid2">
+    <div class="collist">
+      <div class="toolbar">
+        <div class="chips" id="filters" role="group" aria-label="Trophy filters"></div>
+      </div>
+      <div class="listhead">
+        <span id="listcount">All 55 trophies</span>
+        <span class="listtools">
+          <label class="search">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"></circle><path d="m16 16 4 4"></path></svg>
+            <input id="search" type="search" placeholder="Search trophies…" autocomplete="off" aria-label="Search trophies">
+          </label>
+          <span class="sortwrap"><span class="hint">Order</span>
+            <button class="sortbtn active" data-sort="official" type="button">Official</button>
+            <button class="sortbtn" data-sort="grade" type="button">Grade</button>
+          </span>
+        </span>
+      </div>
+      <div class="list" id="list" tabindex="-1"></div>
+    </div>
+    <aside class="detail" id="detail" aria-live="polite"></aside>
+  </section>
+
+  <section id="roadmap-view" class="view grid2 hidden">
+    <div class="colroad" id="roadmap"></div>
+    <aside class="detail" id="watchlist" aria-live="polite"></aside>
+  </section>
+</main>
+
+<div class="backdrop hidden" id="backdrop">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <header class="modalhead">
+      <div>
+        <p class="eyebrow">Local backup · portable JSON</p>
+        <h2 id="modal-title">Export / Import progress</h2>
+      </div>
+      <button class="xbtn" id="io-close" type="button" aria-label="Close dialog">Close</button>
+    </header>
+    <div class="iotabs" role="tablist">
+      <button type="button" data-io="export" class="active">Export</button>
+      <button type="button" data-io="import">Import</button>
+    </div>
+    <div class="iobody" id="io-body"></div>
+  </div>
+</div>
+
+<script type="module" src="js/app.js"></script>
 </body>
 </html>

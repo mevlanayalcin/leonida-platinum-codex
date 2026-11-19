@@ -1,5 +1,6 @@
 [
-  { "file": "1-checklist.jpg", "path": "/", "viewport": { "width": 1280, "height": 800 } },
-  { "file": "2-silver.jpg", "path": "/", "grade": "silver", "viewport": { "width": 1280, "height": 800 } },
-  { "file": "3-bronze.jpg", "path": "/", "grade": "bronze", "scroll": 1400, "viewport": { "width": 1280, "height": 800 } }
+  { "file": "01-cover-tracker-and-guide.jpg", "path": "/", "view": "tracker with the Positive Mental Attitude guide open, 8 earned", "viewport": { "width": 1280, "height": 800 } },
+  { "file": "02-platinum-roadmap-missables.jpg", "path": "/", "view": "Platinum Roadmap tab: three stages, requirements and the 11-row missable watchlist", "viewport": { "width": 1280, "height": 800 } },
+  { "file": "03-spoiler-shield-and-io.jpg", "path": "/", "view": "Spoiler Mode on over the list with the export drawer open", "viewport": { "width": 1280, "height": 800 } },
+  { "file": "04-collectibles-activities-detail.jpg", "path": "/", "view": "Collectibles + Activities filtered, grade sort, A Long Road detail", "viewport": { "width": 1280, "height": 800 } }
 ]
