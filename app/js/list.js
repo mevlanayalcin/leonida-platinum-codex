@@ -1,5 +1,5 @@
 // The tracker list: filter chips with live counts, search, a sort menu,
-// and all 55 rows with medallion, official name and description, flags and cited-source count.
+// and all 55 rows with medallion, official name and description, flags (missable, sources differ) and cited-source count.
 import { state, emit, toggleEarned, select, togglePeek, setView, setPane, toggleSpoilerShield, resetProgress } from './state.js';
 import { FILTERS, filterByKind, countFor, isMasked, isShieldable, maskName, MASK_DESCRIPTION } from './filters.js';
 import { medal, GRADE_LABEL } from './dom.js';
@@ -43,6 +43,7 @@ function rowHTML(t) {
     if (state.spoiler && isShieldable(t) && earned) flags += '<span class="flag tracked">Earned · unshielded</span>';
     if (state.peek.has(t.id)) flags += '<button class="flag peeked" type="button" data-peek>Peeked · hide</button>';
     if (t.missable) flags += '<span class="flag missable">Missable risk</span>';
+    if (t.conflicts.length) flags += `<span class="flag conflict" title="${t.conflicts.map((c) => esc(c.title)).join(' · ')}">⚖ Sources differ</span>`;
     else if (t.saveSlot && !state.spoiler) flags += `<span class="flag save">Save slot ${t.saveSlot}</span>`;
     if (t.count && t.category !== 'story') flags += `<span class="flag tracked">Tracked ${t.count.toLocaleString('en-US')}</span>`;
   }
@@ -128,10 +129,13 @@ export function mountTracker(data) {
 }
 
 const LIST_CSS = '.listmeta .sort{margin-left:auto;margin-right:6px;height:28px;padding:0 6px;border:1px solid var(--line);border-radius:8px;background:#0a0f1c;color:var(--body);font:700 11.5px var(--font);text-transform:none;letter-spacing:0}'
-  + '.chip{display:inline-flex;align-items:center;gap:5px;height:29px;padding:0 7px;border:1px solid var(--line);border-radius:8px;background:#1a2339;color:var(--body);font-size:11.5px;font-weight:750;white-space:nowrap}'
+  + '.chip{display:inline-flex;align-items:center;gap:4px;height:29px;padding:0 6px;border:1px solid var(--line);border-radius:8px;background:#1a2339;color:var(--body);font-size:11px;font-weight:750;white-space:nowrap}'
   + '.chip b{font-size:10.5px;color:var(--dim)}'
   + '.chip[aria-pressed=true]{color:#fff;border-color:#ff5c8aa6;background:#ff5c8a33}.chip[aria-pressed=true] b{color:#ffc2d3}'
   + '.chip.k-flag[aria-pressed=true]{border-color:#38e3cf99;background:#38e3cf26}.chip.k-flag[aria-pressed=true] b{color:#b5fbf1}'
+  + '.chip[data-filter=conflicts]{border-color:#ffb24d59;color:#ffe1b0}.chip[data-filter=conflicts] b{color:#ffb24d}'
+  + '.chip[data-filter=conflicts][aria-pressed=true]{border-color:#ffb24dcc;background:#ffb24d2e}'
+  + '.flag.conflict{color:#ffe3b3;background:#ffb24d24;box-shadow:inset 0 0 0 1px #ffb24d73;text-transform:none;letter-spacing:0}'
   + '.row{display:grid;grid-template-columns:24px 26px minmax(0,1fr) auto;gap:11px;align-items:center;min-height:55px;padding:7px 14px 7px 12px;border-bottom:1px solid var(--line2);cursor:pointer}'
   + '.row.sel{background:linear-gradient(90deg,#ff5c8a2e,#ff5c8a0d);box-shadow:inset 3px 0 var(--coral)}'
   + '.tick{width:22px;height:22px;padding:0;border:1.5px solid #ffffff47;border-radius:6px;background:#0a101d;display:grid;place-items:center;font-size:12px;font-weight:900;color:#0000}'

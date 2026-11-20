@@ -8,6 +8,18 @@ export const state = {
   pane: 'detail', ioMode: 'export', autoScroll: false,
 };
 const listeners = new Set();
+
+/** Expand trophies.json's compact form: source keys become { key, label, page, url } from sourceCatalog,
+ *  and each step [text, ...cites] becomes { text, cites }. */
+export function hydrate(doc) {
+  doc.sources = Object.entries(doc.sourceCatalog).map(([key, s]) => ({ key, ...s }));
+  const byKey = new Map(doc.sources.map((s) => [s.key, s]));
+  for (const t of doc.trophies) {
+    t.sources = t.sources.map((key) => byKey.get(key));
+    t.steps = t.steps.map(([text, ...cites]) => ({ text, cites }));
+  }
+  return doc;
+}
 const ints = (list) => (Array.isArray(list) ? list.filter(Number.isInteger) : []);
 
 export function loadProgress() {

@@ -1,11 +1,12 @@
 // Filter and spoiler rules. "Missable" holds the two flagged risks (the Ch.1 balcony meditation and
-// Yago's timed Ch.3 race); "Chapter Saves" are the ten
+// Yago's timed Ch.3 race); "Conflicts" holds every trophy named by a source disagreement panel; "Chapter Saves" are the ten
 // trophies that mark PowerPyx's start/end-of-chapter save slots.
 export const FILTERS = [
   { id: 'all', label: 'All', kind: 'all' },
   { id: 'story', label: 'Story', kind: 'cat' },
   { id: 'missable', label: 'Missable', kind: 'flag', test: (t) => t.missable },
-  { id: 'saves', label: 'Chapter Saves', kind: 'flag', test: (t) => Boolean(t.saveSlot) },
+  { id: 'conflicts', label: 'Conflicts', kind: 'flag', test: (t) => t.conflicts.length > 0 },
+  { id: 'saves', label: 'Saves', kind: 'flag', test: (t) => Boolean(t.saveSlot) },
   { id: 'collectibles', label: 'Collectibles', kind: 'cat' },
   { id: 'activities', label: 'Activities', kind: 'cat' },
   { id: 'online', label: 'Online', kind: 'cat' },
@@ -27,7 +28,7 @@ export function filterByKind(trophies, state) {
     for (const id of state.flags) if (!byId.get(id).test(t, state)) return false;
     if (!query) return true;
     if (isMasked(t, state)) return false;
-    const text = [t.name, t.description, t.guide, t.missableNote, ...t.steps.map((s) => `${s.text} ${s.cite}`)];
+    const text = [t.name, t.description, t.guide, t.missableNote, ...t.steps.map((s) => s.text), ...t.sources.map((s) => s.label)];
     return text.join(' ').toLowerCase().includes(query);
   });
 }

@@ -1,6 +1,6 @@
 // Leonida Map view: an original, stylized SVG schematic of the six regions (not to scale, no tiles) with a pin
 // for every place a cited walkthrough step names, category chips and region clicks that filter both the pins and
-// the checklist beside it. Each pin's tip is that trophy's own step text and cite, read from trophies.json.
+// the checklist beside it. Each pin's tip is that trophy's own step text and cites, read from trophies.json.
 import { el, medal, citePill } from './dom.js';
 import { state, toggleEarned, openTrophy } from './state.js';
 import { isMasked, maskName } from './filters.js';
@@ -146,7 +146,7 @@ function listPane(doc, rows) {
     name.onclick = () => openTrophy(t.id);
     const where = el('div', 'mwhere', `${place}${region && region !== 'state' ? ` · ${NAME[region]}` : region ? '' : ' · region not given'}`);
     const tip = el('div', 'mtip');
-    tip.append(el('span', null, masked ? 'Spoiler shield on · open the guide to peek.' : step.text), citePill(step.cite, t.sources));
+    tip.append(el('span', null, masked ? 'Spoiler shield on · open the guide to peek.' : step.text), ...step.cites.map((k) => citePill(k, t.sources)));
     body.append(name, where, tip);
     row.append(tick, num, body);
     pane.append(row);
@@ -215,5 +215,5 @@ const MAP_CSS = '#map-view{display:grid;grid-template-columns:minmax(0,1fr) 500p
   + '.mnum{width:22px;height:22px;margin-top:2px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:900;color:#0b1020;background:var(--c)}.mnum.flat{background:#ffffff1f;color:var(--muted)}'
   + '.mname{display:flex;align-items:center;gap:6px;padding:0;font-size:14px;font-weight:780;text-align:left}'
   + '.mwhere{font-size:10.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#ffcf86}'
-  + '.mtip{display:flex;gap:8px;justify-content:space-between;align-items:start;margin-top:1px;font-size:12px;line-height:1.4;color:#dbe3ef}';
+  + '.mtip{display:flex;gap:8px;justify-content:space-between;align-items:start;margin-top:1px;font-size:12px;line-height:1.4;color:#dbe3ef}.mtip>span{flex:1}';
 document.head.append(Object.assign(document.createElement('style'), { textContent: MAP_CSS }));

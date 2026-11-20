@@ -5,14 +5,14 @@
 // screenshots, the first load's files and bytes, and your source), with the vendored make.fun library. Leave
 // vendor/makefun-frontend.ts as it is: the scorer requires dossier.json to be byte for byte what its own copy writes.
 //
-// v5 keeps every step cited and adds a Platinum command strip (progress donut, PSN points, remaining-hours estimate,
-// Next Smart Step, A Long Road counters), a chapter-by-chapter point-of-no-return timeline and an offline SVG map of
-// Leonida. The first load is still index.html, styles.css, app.js and state.js (under 5,500 bytes gzip-9); the
-// command strip, list, cited guide, roadmap, map, source matrix and backup pane are literal import() modules.
-// Each trophy's guide names its sources inline, and each walkthrough step is { text, cite } where cite names one of
-// that trophy's sources (PowerPyx, Push Square, IGN Wiki, Exophase, Beebom, TrueTrophies, and from the 20 Nov day-2
-// pass Game Checklists, OutputLag and TrueAchievements; pages checked 19-20 Nov 2026).
-// The guard below refuses the build if any official count, grade split, hidden count, guide or step citation drifts,
+// v6 cites every claim to all the sites that state it: each walkthrough step is [text, ...cites] and each guide phrase
+// ends in a (Key, Key) group, where a key names a page in trophies.json's sourceCatalog (28 pages on 9 sites:
+// PowerPyx, Push Square, IGN Wiki, Exophase, TrueTrophies, Beebom, Game Checklists, OutputLag, TrueAchievements,
+// all re-read on 20 Nov 2026). A second site is listed only where that page states the same fact. Where the sites
+// disagree, trophies.json keeps a source disagreement panel with each side and its cites. The first load is still
+// index.html, styles.css, app.js and state.js (under 5,500 bytes gzip-9); verify.js (claim counts), the command
+// strip, list, cited guide, roadmap, map and backup pane are literal import() modules.
+// The guard below refuses the build if any official count, grade split, hidden count, citation or panel drifts,
 // and the app's audit strip recomputes the same numbers at boot.
 // Screenshots are real 1280x800 renders, the first by name is the cover, and shots.json records the view each shows.
 //
@@ -29,27 +29,58 @@ const here = fileURLToPath(new URL('.', import.meta.url));
 const out = process.env.MAKEFUN_OUTPUT_DIR ?? '/output';
 
 // Guard the data the judge will read: 55 official entries, 1/2/6/46 grades, 28 hidden, a cited guide for each,
-// and every walkthrough step citing a source listed on its own trophy (0 uncited steps).
+// every source key in sourceCatalog with a page and a deep https URL, every walkthrough step and every guide phrase
+// ending in cites that are that trophy's own sources (0 uncited), and every disagreement panel naming two sites.
+// trophies.json is compact: sources are catalog keys and a step is [text, ...cites]; this expands it the same way
+// app/js/state.js does at boot, and counts claims the way app/js/verify.js does.
 type Source = { label: string; page: string; url: string };
-type Step = { text: string; cite: string };
 type Entry = {
   id: number; name: string; grade: 'platinum' | 'gold' | 'silver' | 'bronze'; hidden?: boolean;
-  guide: string; steps: Step[]; sources: Source[]; saveSlot?: number | null; missable?: boolean;
+  guide: string; steps: string[][]; sources: string[]; saveSlot?: number | null; missable?: boolean;
   missableChapter?: string; missableLabel?: string; missableShort?: string; missableNote?: string; missableCites?: string[];
 };
+type Conflict = { id: string; title: string; trophies: number[]; sides: [string[], string][]; call: string };
 const dataFile = join(here, 'app', 'data', 'trophies.json');
-const entries: Entry[] = JSON.parse(readFileSync(dataFile, 'utf8')).trophies;
+const data: { sourceCatalog: Record<string, Source>; conflicts: Conflict[]; trophies: Entry[] } = JSON.parse(readFileSync(dataFile, 'utf8'));
+const catalog = data.sourceCatalog;
+const entries = data.trophies;
 const grades = { platinum: 0, gold: 0, silver: 0, bronze: 0 };
 for (const entry of entries) grades[entry.grade] += 1;
 const ids = new Set(entries.map((entry) => entry.id));
-const labelsOf = (entry: Entry) => new Set(entry.sources.map((source) => source.label));
-const stepCount = entries.reduce((sum, entry) => sum + entry.steps.length, 0);
-const uncited = entries.flatMap((entry) => entry.steps
-  .filter((step) => typeof step.text !== 'string' || !step.text.trim() || !labelsOf(entry).has(step.cite))
-  .map((step) => `#${entry.id} "${String(step.text).slice(0, 40)}"`));
-const citedGuides = entries.filter((entry) => [...labelsOf(entry)].some((label) => entry.guide.includes(`(${label}`) || entry.guide.includes(`, ${label})`)));
-const badSources = entries.filter((entry) => !entry.sources.length
-  || entry.sources.some((source) => !/^https:\/\/[^/]+\/./.test(source.url) || !source.page?.trim()));
+const siteCount = (cites: string[]) => new Set(cites.map((key) => catalog[key]?.label)).size;
+// A guide claim is the text up to a (Key, Key) group whose keys are all this trophy's sources.
+function guideClaims(entry: Entry) {
+  const own = new Set(entry.sources);
+  const claims: string[][] = [];
+  let from = 0;
+  for (const m of entry.guide.matchAll(/\(([^()]+)\)/g)) {
+    const cites = m[1].split(', ');
+    if (!cites.every((key) => own.has(key))) continue;
+    claims.push(cites);
+    from = (m.index ?? 0) + m[0].length;
+  }
+  return { claims, rest: entry.guide.slice(from).replace(/[\s.;,:]+/g, '') };
+}
+const badCatalog = Object.entries(catalog).filter(([, s]) => !s.label?.trim() || !s.page?.trim() || !/^https:\/\/[^/]+\/./.test(s.url)).map(([key]) => key);
+const badSources = entries.filter((entry) => !entry.sources.length || entry.sources.some((key) => !catalog[key])).map((entry) => `#${entry.id}`);
+const uncited: string[] = [];
+let stepCount = 0, claimCount = 0, multiCount = 0;
+for (const entry of entries) {
+  const own = new Set(entry.sources);
+  const guide = guideClaims(entry);
+  if (!guide.claims.length || guide.rest) uncited.push(`#${entry.id} guide "${guide.rest.slice(0, 30)}"`);
+  for (const [text, ...cites] of entry.steps) {
+    stepCount += 1;
+    if (typeof text !== 'string' || !text.trim() || !cites.length || !cites.every((key) => own.has(key))) uncited.push(`#${entry.id} "${String(text).slice(0, 40)}"`);
+  }
+  for (const cites of [...guide.claims, ...entry.steps.map(([, ...c]) => c)]) {
+    claimCount += 1;
+    if (siteCount(cites) > 1) multiCount += 1;
+  }
+}
+const badConflicts = data.conflicts.filter((c) => !c.title?.trim() || !c.call?.trim() || !c.trophies.length || c.trophies.some((id) => !ids.has(id))
+  || c.sides.length < 2 || c.sides.some(([keys, says]) => !keys.length || keys.some((key) => !catalog[key]) || !says?.trim())
+  || siteCount(c.sides.flatMap(([keys]) => keys)) < 2).map((c) => c.id);
 const saveSlots = entries.map((entry) => entry.saveSlot).filter(Boolean).sort((a, b) => Number(a) - Number(b)).join(',');
 const problems = [
   entries.length === 55 ? '' : `${entries.length} trophies, expected 55`,
@@ -59,14 +90,15 @@ const problems = [
   entries.filter((entry) => entry.hidden).length === 28 ? '' : 'hidden count is not 28',
   entries.every((entry) => typeof entry.name === 'string' && entry.name.trim() && typeof entry.guide === 'string' && entry.guide.trim())
     ? '' : 'a trophy is missing its official name or its guide',
-  citedGuides.length === 55 ? '' : `${citedGuides.length}/55 guides name one of their sources inline`,
-  badSources.length ? `sources need a page and a deep https URL: #${badSources.map((entry) => entry.id).join(', #')}` : '',
-  uncited.length ? `${uncited.length} uncited steps: ${uncited.slice(0, 3).join('; ')}` : '',
+  badCatalog.length ? `sourceCatalog entries need a label, a page and a deep https URL: ${badCatalog.join(', ')}` : '',
+  badSources.length ? `sources must be sourceCatalog keys: ${badSources.join(', ')}` : '',
+  uncited.length ? `${uncited.length} uncited claims: ${uncited.slice(0, 3).join('; ')}` : '',
+  badConflicts.length ? `disagreement panels need a title, a call, known trophies and 2+ sides from 2+ sites: ${badConflicts.join(', ')}` : '',
   // Two missable risks (the Ch.1 balcony meditation, Yago's timed Ch.3 race), each with a chapter tag, a note
   // and callout cites that name sources listed on that same trophy.
   entries.filter((entry) => entry.missable).length === 2 ? '' : 'expected exactly 2 missable flags',
   entries.filter((entry) => entry.missable && !(entry.missableChapter && entry.missableLabel && entry.missableShort
-    && entry.missableNote && entry.missableCites?.length && entry.missableCites.every((label) => labelsOf(entry).has(label))))
+    && entry.missableNote && entry.missableCites?.length && entry.missableCites.every((key) => entry.sources.includes(key))))
     .map((entry) => `missable #${entry.id} lacks its chapter tag, note or own-source cites`).join('; '),
   saveSlots === '1,2,3,4,5,6,7,8,9,10' ? '' : `chapter save slots are ${saveSlots}, expected 1-10`,
 ].filter(Boolean);
@@ -107,7 +139,8 @@ if (/\[Cut at \d+ bytes/.test(dossierText)) throw new Error('dossier text is ove
 
 writeFileSync(join(out, 'dossier.json'), dossier);
 
-console.log(`Leonida Platinum Codex: ${entries.length} trophies (${grades.platinum}P/${grades.gold}G/${grades.silver}S/${grades.bronze}B, 28 hidden), ${citedGuides.length}/55 cited guides, ${stepCount - uncited.length}/${stepCount} cited steps, 0 uncited, ${entries.filter((entry) => entry.missable).length} missable risks`);
+const outlets = new Set(entries.flatMap((entry) => entry.sources.map((key) => catalog[key].label)));
+console.log(`Leonida Platinum Codex: ${entries.length} trophies (${grades.platinum}P/${grades.gold}G/${grades.silver}S/${grades.bronze}B, 28 hidden), ${claimCount} cited claims (${stepCount} steps), ${multiCount} on 2+ sites, 0 uncited, ${data.conflicts.length} disagreement panels, ${Object.keys(catalog).length} pages on ${outlets.size} sites, ${entries.filter((entry) => entry.missable).length} missable risks`);
 console.log(`screenshots: ${shots.map((shot) => `${shot} ${Math.round(statSync(join(shotDir, shot)).size / 1024)} KiB`).join(', ')}`);
 console.log(`first load: ${firstLoadFiles} files, ${firstLoadBytes} bytes gzip-9 (under 5500)`);
 console.log(`dossier: ${dossier.length} bytes -> ${join(out, 'dossier.json')}`);

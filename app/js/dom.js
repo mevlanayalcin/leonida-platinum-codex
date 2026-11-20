@@ -1,5 +1,5 @@
 // Shared view helpers: the element builder, the four grade medallions (one inline SVG sprite:
-// diamond, star, crest, shield), source chips and the per-step cite pill, plus their styles.
+// diamond, star, crest, shield), source chips, the per-claim cite pill and the 2+ sites pill, plus their styles.
 export const CHECKED = '20 Nov 2026';
 export const GRADE_LABEL = { platinum: 'Platinum', gold: 'Gold', silver: 'Silver', bronze: 'Bronze' };
 
@@ -47,11 +47,18 @@ export function sourceChips(parent, sources) {
   return parent;
 }
 
-/** The muted pill that ends every walkthrough step, naming the guide the step comes from. */
-export function citePill(label, sources) {
-  const source = sources.find((s) => s.label === label);
-  const pill = link('citep', source.url, label);
-  pill.title = `Step source: ${label}, ${source.page} (checked ${CHECKED})`;
+/** The muted pill that names one source by its catalog key and links to the exact page. */
+export function citePill(key, sources, withPage) {
+  const source = sources.find((s) => s.key === key);
+  const pill = link('citep', source.url, withPage && source.label === 'IGN Wiki' ? `IGN: ${source.page}` : source.label);
+  pill.title = `${source.label}: ${source.page} (checked ${CHECKED})`;
+  return pill;
+}
+
+/** Green when a claim's cites name two or more different sites, amber when one site carries it alone. */
+export function sitePill(n) {
+  const pill = el('span', `sitep${n > 1 ? ' two' : ''}`, n > 1 ? `${n} sites` : '1 site · verify');
+  pill.title = n > 1 ? `Backed by ${n} independent sites` : 'Only one site states this: double-check in game';
   return pill;
 }
 
@@ -67,6 +74,8 @@ const CSS = '.medal{flex:none;display:block;filter:drop-shadow(0 1px 1.5px #0009
   + '.src{display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 8px;border:1px solid #38e3cf59;border-radius:7px;background:#38e3cf14;color:#d4fff8;font-size:11px;font-weight:750;text-decoration:none;white-space:nowrap}'
   + '.src span{font-weight:500;color:#9fd9cf}'
   + '.citep{flex:none;align-self:start;margin-top:1px;padding:1px 6px;text-transform:none;letter-spacing:0;border-radius:5px;background:#38e3cf17;color:#8fe3d6;font-size:9.8px;font-weight:750;text-decoration:none;white-space:nowrap;box-shadow:inset 0 0 0 1px #38e3cf33}'
+  + '.sitep{flex:none;align-self:start;margin-top:1px;padding:1px 5px;border-radius:5px;font-size:9px;font-weight:900;letter-spacing:.05em;text-transform:uppercase;white-space:nowrap;color:#ffd58a;background:#ffc0611a;box-shadow:inset 0 0 0 1px #ffc06159}'
+  + '.sitep.two{color:#9dffbf;background:#3ddc841a;box-shadow:inset 0 0 0 1px #3ddc8466}'
   + '.cite{color:#8ff0e2;font-weight:700;text-decoration:none;border-bottom:1px dotted #8ff0e299}'
   + '.seclabel{display:flex;justify-content:space-between;align-items:baseline;margin:9px 0 5px;font-size:10px;font-weight:850;letter-spacing:.13em;text-transform:uppercase;color:var(--dim)}'
   + '.seclabel b{color:#9fe9dd;letter-spacing:.06em}';

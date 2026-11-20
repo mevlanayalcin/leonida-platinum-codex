@@ -1,18 +1,19 @@
 // Platinum Roadmap: the chapter-by-chapter story and point-of-no-return timeline (SVG track, save slots,
-// missable windows, free-roam unlocks), three phases mapping all 55 trophies as clickable pills, the missable
-// guardrails and the source verification matrix, all computed from the data and this browser's progress.
-import { el, link, medal, citePill, CHECKED } from './dom.js';
+// missable windows, free-roam unlocks), three phases mapping all 55 trophies as clickable pills, the source
+// verification matrix (claims, 2+ sites share and disputes per source, from verify.js) and
+// the source disagreement panels, all computed from the data and this browser's progress.
+import { el, link, medal, CHECKED } from './dom.js';
 import { state, openTrophy } from './state.js';
 import { isMasked, maskName } from './filters.js';
 import { appendCited } from './detail.js';
 
 const STAGES = [
   { n: 1, title: 'Story + Ch.1 / Ch.3 missables', tone: '#ff5c8a',
-    line: 'Save at every chapter start and end (PowerPyx); clear both flagged windows on sight (Beebom, Game Checklists).' },
+    line: 'Save at every chapter start and end (PPX); clear both flagged windows on sight (BEE, GC).' },
   { n: 2, title: '100% checklist, vaults, ranges & 250 stunts', tone: '#38e3cf',
-    line: 'After the credits: 100 optional missions, 200 vehicles, 100 animals, 300 stunts, 70 challenges (PowerPyx, IGN Wiki).' },
+    line: 'After the credits: 100 optional missions, 200 vehicles, 100 animals, 300 stunts, 70 challenges (PPX, I100).' },
   { n: 3, title: 'Strangers, collectibles & clean-up', tone: '#ffc061',
-    line: 'Strangers & Freaks sit outside 100%: sweep them and the one-offs last (PowerPyx).',
+    line: 'Strangers & Freaks sit outside 100%: sweep them and the one-offs last (PPX).',
     groups: [['strangers', 'Strangers'], ['world', 'Collectibles & World'], ['activities', 'Activities & Combat'], ['platinum', 'Platinum']] },
 ];
 // One column a chapter: its story trophies in play order, its two PowerPyx save slots, the missable whose window
@@ -25,21 +26,17 @@ const CHAPTERS = [
   { n: 5, story: [13, 7], opens: [[7, 'Slot 10: the pre-finale save']] },
   { n: 0, story: [], opens: [[14, '100% checklist opens'], [25, 'Strangers & leftovers'], [1, 'Platinum']] },
 ];
-const FACTS = [['55/55', 'mapped'], ['~200 h', 'PowerPyx'], ['1', 'playthrough'], ['0', 'online'], ['No', 'mission replay'], ['4/10', 'difficulty']];
-// [source, date last read, scope]. PowerPyx was re-read on 20 Nov; the three day-2 sources were added then.
+const FACTS = [['55/55', 'mapped'], ['~200 h', 'PowerPyx'], ['300+ h', 'Push Square'], ['1', 'playthrough'], ['0', 'online'], ['No', 'mission replay']];
+// [source, date last read, scope]. All nine were re-read on 20 Nov for v6 (TrueAchievements answers scripts with 403,
+// so its row keeps the method players report there); the counts beside them come from verify.js.
 const MATRIX = [
-  ['PowerPyx', '20 Nov', 'Roadmap + all 55 how-tos'], ['Exophase', '19 Nov', 'Official names, grades, counts'],
-  ['Push Square', '19 Nov', 'Roadmap, menu paths, counts'], ['IGN Wiki', '19 Nov', '100% bars, maps, missions'],
-  ['Game Checklists', '20 Nov', 'Missables: Yago timed race'], ['OutputLag', '20 Nov', 'Stranger strands, char locks'],
-  ['TrueAchievements', '20 Nov', 'Bad Luck, I Guess method'], ['Beebom', '19 Nov', 'All 18 meditation spots'],
-  ['TrueTrophies', '19 Nov', 'PS5 list · 28 secret'],
+  ['PowerPyx', '20 Nov', 'Roadmap + all 55 how-tos'], ['Push Square', '20 Nov', 'Roadmap, menu paths, counts'],
+  ['IGN Wiki', '20 Nov', '100% bars, maps, missions'], ['Game Checklists', '20 Nov', 'Missables: Yago timed race'],
+  ['OutputLag', '20 Nov', 'Stranger strands, char locks'], ['Exophase', '20 Nov', 'Official descriptions'],
+  ['TrueTrophies', '20 Nov', 'PS5 list · 28 hidden'], ['Beebom', '20 Nov', 'All 18 meditation spots'],
+  ['TrueAchievements', '20 Nov', 'Bad Luck, I Guess method'],
 ];
 
-function sourceIndex(doc) {
-  const map = new Map();
-  for (const t of doc.trophies) for (const s of t.sources) if (!map.has(s.label)) map.set(s.label, s);
-  return map;
-}
 
 function trophyPill(t) {
   const masked = isMasked(t, state);
@@ -82,7 +79,7 @@ function trackSVG(doc, byId) {
 
 function renderTimeline(host, doc) {
   const byId = new Map(doc.trophies.map((t) => [t.id, t]));
-  const all = [...sourceIndex(doc).values()];
+  const all = doc.sources;
   const card = el('section', 'tline');
   const head = el('div', 'tlhead');
   const title = el('div');
@@ -124,17 +121,16 @@ function renderTimeline(host, doc) {
       line.append(el('span', null, c.n ? '↳ ' : '◆ '), text);
       col.append(line);
     }
-    if (!c.n) col.append(appendCited(el('p', 'tlnote'), 'S1-S10 chapter saves, no mission replay (PowerPyx) · ⚑ window closes (Beebom, Game Checklists)', all));
+    if (!c.n) col.append(appendCited(el('p', 'tlnote'), 'S1-S10 chapter saves, no mission replay (PPX) · ⚑ window closes (BEE, GC)', all));
     cols.append(col);
   }
   card.append(cols);
   host.replaceChildren(card);
 }
 
-/** Top: the story timeline. Left: the three phases. Right: guardrails and the source matrix. */
+/** Top: the story timeline. Left: the three phases. Right: the source matrix and the disagreement panels. */
 export function renderRoadmap(host, side, doc) {
-  const sources = sourceIndex(doc);
-  const all = [...sources.values()];
+  const all = doc.sources;
   renderTimeline(document.querySelector('#story-timeline'), doc);
   host.replaceChildren();
 
@@ -159,54 +155,45 @@ export function renderRoadmap(host, side, doc) {
     } else card.append(pillRow(trophies));
     host.append(card);
   }
-  renderGuardrails(side, doc, sources);
+  renderSourcePane(side, doc);
 }
 
-function guardRow(t, slot, note) {
-  const row = el('button', 'guardrow');
-  row.type = 'button';
-  row.append(el('span', `slot${t.missable ? ' risk' : ''}`, slot), el('b', null, isMasked(t, state) ? maskName(t) : t.name), el('span', 'gnote', note));
-  row.onclick = () => openTrophy(t.id);
-  return row;
-}
-
-function renderGuardrails(host, doc, sources) {
+/** Right pane: per-source claims, 2+ sites share and disputes, then one chip per disagreement panel. */
+function renderSourcePane(host, doc) {
   host.replaceChildren();
-  const missable = doc.trophies.filter((t) => t.missable);
-  const saves = doc.trophies.filter((t) => t.saveSlot).sort((a, b) => a.saveSlot - b.saveSlot);
-  const head = el('div', 'stitle');
-  head.append(el('h3', null, 'Missable & save guardrails'), citePill('PowerPyx', [...sources.values()]));
-  host.append(head);
-
-  const label = (text, count) => { const l = el('div', 'seclabel'); l.append(el('span', null, text), el('b', null, String(count))); return l; };
-  host.append(label('Missable risk', missable.length));
-  for (const t of missable) host.append(guardRow(t, t.missableChapter, t.missableShort));
-  const slots = el('div', 'slotrow');
-  for (const t of saves) {
-    const b = el('button', 'slot', `S${t.saveSlot}`);
-    b.type = 'button';
-    b.title = `Slot ${t.saveSlot}: ${t.saveNote}`;
-    b.onclick = () => openTrophy(t.id);
-    slots.append(b);
-  }
-  host.append(label('Chapter saves · pinned on the timeline', saves.length), slots);
-
+  const a = doc.audit;
   const card = el('div', 'matrix');
   const mhead = el('div', 'stitle');
-  mhead.append(el('h3', null, 'Source Verification Matrix'), el('span', 'scount', `checked ${CHECKED}`));
+  mhead.append(el('h3', null, 'Source Verification & Disagreements'), el('span', 'scount', `checked ${CHECKED}`));
   card.append(mhead);
   const headRow = el('div', 'mrow mhead');
-  for (const column of ['Source', 'Cites', 'Read', 'Scope']) headRow.append(el('span', null, column));
+  for (const column of ['Source', 'Claims', 'On 2+ sites', 'Disputes', 'Read']) headRow.append(el('span', null, column));
   card.append(headRow);
   for (const [label, date, scope] of MATRIX) {
-    const covered = doc.trophies.filter((t) => t.sources.some((s) => s.label === label)).length;
+    const r = a.perLabel.get(label);
     const row = el('div', 'mrow');
-    row.append(link(null, sources.get(label).url, label), el('b', null, `${covered}/${doc.trophies.length}`), el('span', null, date), el('span', null, scope));
+    const first = doc.sources.find((s) => s.label === label);
+    const name = link(null, first.url, label);
+    name.title = `${scope} · ${r.pages.size} page${r.pages.size > 1 ? 's' : ''} cited`;
+    const rate = Math.round((r.multi / r.claims) * 100);
+    const bar = el('span', 'mrate');
+    bar.innerHTML = `<b>${r.multi}</b> <i>${rate}%</i><em style="width:${rate}%"></em>`;
+    row.append(name, el('b', null, String(r.claims)), bar, el('span', r.conflicts ? 'mdis' : null, r.conflicts ? `⚖ ${r.conflicts}` : '-'), el('span', null, date));
     card.append(row);
   }
-  const steps = doc.trophies.reduce((n, t) => n + t.steps.length, 0);
-  const cited = doc.trophies.reduce((n, t) => n + t.steps.filter((s) => t.sources.some((x) => x.label === s.cite)).length, 0);
-  card.append(el('p', 'mnote', `${cited}/${steps} steps cited · recomputed from app/data at boot · 0 network requests`));
+  card.append(el('p', 'mnote', `${a.claims} claims · ${a.multi} (${Math.round((a.multi / a.claims) * 100)}%) on 2+ sites · ${a.pages} pages · ${a.uncited} uncited · counted at boot`));
+  const dl = el('div', 'seclabel');
+  dl.append(el('span', null, 'Where the sources disagree'), el('b', null, `${a.conflicts} panels`));
+  const chips = el('div', 'dchips');
+  for (const c of doc.conflicts) {
+    const chip = el('button', 'dchip', c.title);
+    chip.type = 'button';
+    chip.title = c.sides.map(([keys, says]) => `${keys.join(' + ')}: ${says}`).join('\n');
+    chip.onclick = () => openTrophy(c.trophies[0]);
+    chip.prepend(el('i', null, `${new Set(c.sides.flatMap(([keys]) => keys.map((k) => a.byKey.get(k).label))).size}`));
+    chips.append(chip);
+  }
+  card.append(dl, chips);
   host.append(card);
 }
 
@@ -225,7 +212,6 @@ const ROADMAP_CSS = '.tline{padding:9px 14px 7px;border:1px solid #ff5c8a4d;bord
   + '.tlrisk.won{border-color:#38e3cf8c;background:#38e3cf1f}'
   + '.tlopen{width:100%;padding:0;text-align:left;font-size:10.6px;line-height:1.35;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.tlopen span{color:var(--sun)}'
   + '.tlnote{margin:4px 0 0;padding-top:4px;border-top:1px solid var(--line2);font-size:10.3px;line-height:1.4;color:var(--dim)}'
-  + '.slotrow{display:flex;gap:4px;margin-bottom:2px}.slotrow .slot{flex:1;padding:2px 0}'
   + '.roadmap{min-height:0;overflow-y:auto;padding-right:2px}'
   + '.facts{display:flex;gap:5px;margin:5px 0 8px}'
   + '.fact{padding:2px 8px;border:1px solid var(--line);border-radius:8px;background:#1a2339;font-size:10.5px;white-space:nowrap;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}'
@@ -240,13 +226,14 @@ const ROADMAP_CSS = '.tline{padding:9px 14px 7px;border:1px solid #ff5c8a4d;bord
   + '.tpill.won{border-color:#38e3cf73;background:#38e3cf1a}'
   + '.glabel{display:inline-flex;align-items:center;height:20px;padding:0 8px;border-radius:6px;background:#ffc06129;font-size:10.5px;font-weight:850;letter-spacing:.04em;text-transform:uppercase;color:#ffdc9c;white-space:nowrap}'
   + '.glabel:not(:first-child){margin-left:6px}'
-  + '#save-guardrails .stitle h3{font-size:15px}'
-  + '.guardrow{width:100%;display:grid;grid-template-columns:50px auto minmax(0,1fr);gap:9px;align-items:center;padding:2px 0;border-top:1px solid var(--line2);text-align:left;font-size:11.5px;line-height:1.3}'
-  + '.guardrow b{font-weight:750;white-space:nowrap}.gnote{text-align:right;color:var(--muted);font-size:11px;white-space:nowrap}'
-  + '.slot{padding:1px 0;border-radius:5px;background:#ffc06124;color:#ffe2a8;font-size:10px;font-weight:850;text-align:center}.slot.risk{background:#ff5c8a4d;color:#ffe1ea}'
-  + '.matrix{margin-top:7px;padding:7px 11px 6px;border:1px solid #38e3cf4d;border-radius:11px;background:#0d1b26}'
   + '.matrix h3{font-size:13.5px}'
-  + '.mrow{display:grid;grid-template-columns:108px 42px 44px minmax(0,1fr);column-gap:11px;align-items:center;padding:1px 0;border-top:1px solid var(--line2);font-size:11px;font-variant-numeric:tabular-nums;color:#d2e8e3;white-space:nowrap}'
+  + '.mrate{position:relative;display:flex;gap:5px;align-items:baseline;padding-bottom:2px}.mrate i{font-style:normal;color:#9fd8cc;font-size:10px}'
+  + '.mrate em{position:absolute;left:0;bottom:0;height:2px;border-radius:1px;background:#3ddc84}'
+  + '.mdis{color:#ffc061;font-weight:800}'
+  + '.dchips{display:flex;flex-wrap:wrap;gap:3px}'
+  + '.dchip{display:inline-flex;align-items:center;gap:4px;height:19px;padding:0 6px 0 3px;border:1px solid #ffb24d59;border-radius:6px;background:#ffb24d17;color:#ffe6c2;font-size:10.2px;font-weight:700;white-space:nowrap}'
+  + '.dchip i{font-style:normal;min-width:13px;height:13px;border-radius:4px;background:#ffb24d;color:#2a1600;font-size:9px;font-weight:900;line-height:13px;text-align:center}'
+  + '.mrow{display:grid;grid-template-columns:112px 44px 92px 54px minmax(0,1fr);column-gap:11px;align-items:center;padding:0;border-top:1px solid var(--line2);font-size:11px;font-variant-numeric:tabular-nums;color:#d2e8e3;white-space:nowrap}'
   + '.mhead{margin-top:4px;border-top:0;font-size:9.5px;font-weight:850;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}'
   + '.mrow a{font-weight:750;color:#bff8ef;text-decoration:none}.mrow b{color:#fff}'
   + '.mnote{margin:5px 0 0;font-size:10.5px;color:#9fd8cc}';

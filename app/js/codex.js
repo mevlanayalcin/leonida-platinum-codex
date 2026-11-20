@@ -10,16 +10,16 @@ const GRADES = ['platinum', 'gold', 'silver', 'bronze'];
 export const POINTS = { platinum: 300, gold: 90, silver: 30, bronze: 15 };
 export const BASE_HOURS = 200; // PowerPyx's ~200 h estimate, roadmap.hours in trophies.json
 
-// [key, label, 100% goal, note, trophy whose sources hold the figure, that source, trophy goal, trophy id]
+// [key, label, 100% goal, note, trophy whose sources hold the figure, that source's key, trophy goal, trophy id]
 export const COUNTERS = [
-  ['missions', 'Optional missions', 100, 'any 100', 14, 'PowerPyx'],
-  ['vehicles', 'Vehicles scanned', 200, 'of 277', 14, 'PowerPyx'],
-  ['animals', 'Animals studied', 100, 'of 255', 14, 'PowerPyx'],
-  ['stunts', 'Stunts', 300, 'trophy at 250', 15, 'IGN Wiki', 250, 15],
-  ['challenges', 'Challenges', 70, 'trophy at 50', 14, 'PowerPyx', 50, 32],
-  ['ranges', 'Range golds', 42, 'all golds', 17, 'Push Square', 42, 17],
-  ['vaults', 'Bank vaults', 8, 'trophy at 5', 40, 'PowerPyx', 5, 40],
-  ['strangers', 'Stranger strands', 8, 'outside 100%', 25, 'Exophase', 8, 25],
+  ['missions', 'Optional missions', 100, 'any 100', 14, 'PPX'],
+  ['vehicles', 'Vehicles scanned', 200, 'of 277', 14, 'PPX'],
+  ['animals', 'Animals studied', 100, 'of 255', 14, 'PPX'],
+  ['stunts', 'Stunts', 300, 'trophy at 250', 15, 'I100', 250, 15],
+  ['challenges', 'Challenges', 70, 'trophy at 50', 14, 'PPX', 50, 32],
+  ['ranges', 'Range golds', 42, 'all golds', 17, 'PSQ', 42, 17],
+  ['vaults', 'Bank vaults', 8, 'trophy at 5', 40, 'PPX', 5, 40],
+  ['strangers', 'Stranger strands', 8, 'outside 100%', 25, 'PPX', 8, 25],
 ];
 const LONG_ROAD = 14;
 const count = (key) => state.counters[key] ?? 0;
@@ -158,11 +158,11 @@ function countersRow(doc) {
   row.append(label);
   for (const [key, name, goal, note, id, cite, trophyGoal] of COUNTERS) {
     const n = count(key);
-    const source = doc.trophies.find((t) => t.id === id).sources.find((x) => x.label === cite);
+    const source = doc.trophies.find((t) => t.id === id).sources.find((x) => x.key === cite);
     const ready = trophyGoal && n >= trophyGoal;
     const cell = el('div', `ctr${n >= goal ? ' full' : ready ? ' ready' : ''}`);
     cell.dataset.counter = key;
-    cell.title = `${name}: ${n}/${goal} (${note}) · ${cite}`;
+    cell.title = `${name}: ${n}/${goal} (${note}) · ${source.label}`;
     const top = el('div', 'ctop');
     top.append(el('span', null, name));
     const mid = el('div', 'cmid');
@@ -173,8 +173,8 @@ function countersRow(doc) {
     const bar = el('div', 'mbar');
     bar.innerHTML = `<i style="width:${Math.min(100, (n / goal) * 100)}%"></i>`;
     const foot = el('small', null, ready ? `✓ ${note.replace('trophy at', 'ready at')}` : note);
-    const src = el('a', 'csrc', cite);
-    Object.assign(src, { href: source.url, target: '_blank', rel: 'noopener noreferrer', title: `${cite}: ${source.page}` });
+    const src = el('a', 'csrc', source.label);
+    Object.assign(src, { href: source.url, target: '_blank', rel: 'noopener noreferrer', title: `${source.label}: ${source.page}` });
     foot.append(src);
     cell.append(top, mid, bar, foot);
     row.append(cell);
