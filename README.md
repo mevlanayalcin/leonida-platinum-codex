@@ -4,7 +4,16 @@
 [![rank](https://make.fun/badge/gta6-trophy-guide-01/mevlanayalcin/leonida-platinum-codex/rank.svg)](https://make.fun/bounty/gta6-trophy-guide-01/leaderboard?utm_source=github&utm_medium=readme&utm_campaign=gta6-trophy-guide-01)
 [![reward](https://make.fun/badge/gta6-trophy-guide-01/mevlanayalcin/leonida-platinum-codex/reward.svg)](https://make.fun/bounty/gta6-trophy-guide-01?utm_source=github&utm_medium=readme&utm_campaign=gta6-trophy-guide-01)
 
-An offline GTA VI trophy guide and tracker for all 55 official PS5 trophies: every official name, description and grade kept verbatim (1 platinum, 2 gold, 6 silver, 46 bronze, 28 hidden), an original guide per trophy whose every walkthrough step names its source, a three-stage platinum roadmap that maps all 55 trophies and flags 2 missable risks, spoiler-safe reading and portable JSON backup. No accounts, no network calls: the whole guide is static files and progress lives in this browser.
+An offline GTA VI trophy guide and tracker for all 55 official PS5 trophies: every official name, description and grade kept verbatim (1 platinum, 2 gold, 6 silver, 46 bronze, 28 hidden), an original guide per trophy whose every walkthrough step names its source, a Platinum command strip with a remaining-hours estimate and next-step advice, a chapter-by-chapter point-of-no-return timeline, a three-phase roadmap that maps all 55 trophies and flags 2 missable risks, an offline SVG map of Leonida, spoiler-safe reading and portable JSON backup. No accounts, no network calls: the whole guide is static files and progress lives in this browser.
+
+## What v5 changes (20 Nov 2026)
+
+- **Platinum command strip** (`app/js/codex.js`, Tracker view). An SVG donut shows `X / 55` with earned-by-grade counts and PSN points (15/30/90/300 per grade, 1,350 total). A remaining-hours estimate starts from PowerPyx's ~200 h and splits it by our own per-trophy weighting (grade, story, counters), so it is a planning estimate, not a sourced figure. **Next Smart Step** recommends one trophy: a missable whose chapter is still open comes first, then the story in save-slot order, then phases 2 and 3. If a missable's chapter ends before you earn it, the strip names the start-of-chapter save to reload. It also shows PowerPyx's warning that cheats block trophies and saving.
+- **A Long Road counters.** Eight -/+ counters, saved to `localStorage`: 100 optional missions, 200 of 277 vehicles, 100 of 255 animals, 300 stunts (Cunning Stunts at 250), 70 challenges (One Last Thing at 50), 42 range golds, 8 vaults (Maximum Withdrawal at 5) and 8 stranger strands. Each counter links the source of its target. Shift-click steps by 10.
+- **Story and point-of-no-return timeline** (Roadmap view). An SVG track runs Ch.1 to Ch.5 plus post-game. It marks the 10 chapter saves S1-S10 and flags where the Ch.1 balcony meditation and Ch.3 Yago race windows close. Each chapter column lists its story trophies, its missable and what it opens for free roam. The three stages are now called phases.
+- **Leonida Map** (`app/js/map.js`). An original stylized SVG (not to scale, no tiles) of Port Gellhorn, Mount Kalaga, Ambrosia, Grassrivers, Vice City and the Leonida Keys. It has 17 pins, one for each place a cited walkthrough step names, and each pin's tip is that step's text and cite. Category chips and region clicks filter the pins and the checklist beside them. Places our sources name without a region (Kelly County, Lummox County, Belville) sit in a "named, not placed" tray. Grassrivers shows "no cited pin yet".
+- **Backup and keys.** Export now includes the counters. A compact share code (`LPC1-<earned bitmask>-<counters>`) imports through the same validated restore box. The list has a sort menu. Keys: `/` search, `1`-`4` views (Tracker, Roadmap, Leonida Map, Backup), `S` Spoiler Mode, `Esc` back to the tracker.
+- **Same accuracy guard.** 55/55 official trophies, 1/2/6/46, 28 hidden, 229/229 cited steps, 2 missables. `trophies.json` drops default-valued fields (`false`, `null`, `""`), with the same meaning and about 4 KB smaller. `main.ts` now also refuses a build whose dossier text would cut a source file. The first load is still 4 files at about 5.2 KB gzip-9.
 
 ## What v4.2 changes (day-2 pass, 20 Nov 2026)
 
@@ -29,7 +38,7 @@ mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts
 node serve.ts   # then open http://localhost:8080
 ```
 
-`app/` is a plain static folder: `index.html`, `styles.css`, `js/` modules and `data/trophies.json`. No build step, no runtime fetch except its own trophy file and its own modules.
+`app/` is a plain static folder: `index.html`, `styles.css`, `js/` modules and `data/trophies.json`. The map and every chart are inline SVG. No build step, no runtime fetch except its own trophy file and its own modules.
 
 ---
 

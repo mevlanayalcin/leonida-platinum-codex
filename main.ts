@@ -5,8 +5,10 @@
 // screenshots, the first load's files and bytes, and your source), with the vendored make.fun library. Leave
 // vendor/makefun-frontend.ts as it is: the scorer requires dossier.json to be byte for byte what its own copy writes.
 //
-// v4 cites every step: the first load is index.html, styles.css, app.js and state.js (under 5,500 bytes gzip-9);
-// the 55-row list, cited guide, roadmap, source verification matrix and backup pane are literal import() modules.
+// v5 keeps every step cited and adds a Platinum command strip (progress donut, PSN points, remaining-hours estimate,
+// Next Smart Step, A Long Road counters), a chapter-by-chapter point-of-no-return timeline and an offline SVG map of
+// Leonida. The first load is still index.html, styles.css, app.js and state.js (under 5,500 bytes gzip-9); the
+// command strip, list, cited guide, roadmap, map, source matrix and backup pane are literal import() modules.
 // Each trophy's guide names its sources inline, and each walkthrough step is { text, cite } where cite names one of
 // that trophy's sources (PowerPyx, Push Square, IGN Wiki, Exophase, Beebom, TrueTrophies, and from the 20 Nov day-2
 // pass Game Checklists, OutputLag and TrueAchievements; pages checked 19-20 Nov 2026).
@@ -99,6 +101,9 @@ if (!totals) throw new Error('dossier is missing its Totals line');
 const firstLoadFiles = Number(totals[1]);
 const firstLoadBytes = Number(totals[2]);
 if (firstLoadBytes >= 5500) throw new Error(`first load is ${firstLoadBytes} bytes gzip-9, expected under 5500`);
+
+// Every source must reach the judge whole: refuse a build whose dossier text had to cut a file.
+if (/\[Cut at \d+ bytes/.test(dossierText)) throw new Error('dossier text is over text_max_bytes: a source file was cut');
 
 writeFileSync(join(out, 'dossier.json'), dossier);
 

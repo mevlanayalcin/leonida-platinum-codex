@@ -4,7 +4,7 @@ import { state, toggleEarned, toggleStep, togglePeek, isStepDone } from './state
 import { isMasked, maskName, MASK_DESCRIPTION } from './filters.js';
 import { el, link, gradeBadge, sourceChips, citePill, CHECKED } from './dom.js';
 
-const STAGE = { 1: 'Stage 1 · Story + missable', 2: 'Stage 2 · 100% counters', 3: 'Stage 3 · Clean-up' };
+const STAGE = { 1: 'Phase 1 · Story + missables', 2: 'Phase 2 · 100% counters', 3: 'Phase 3 · Clean-up' };
 const CATEGORY = { platinum: 'Platinum', story: 'Story', collectibles: 'Collectibles', activities: 'Activities' };
 
 export function escapeRegExp(value) {

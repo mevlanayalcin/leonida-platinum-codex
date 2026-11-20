@@ -14,44 +14,45 @@
     <span><span class=eyebrow>GTA VI · PS5 trophy guide &amp; tracker</span>
     <h1>Leonida Platinum Codex</h1></span>
   </a>
+  <nav class=viewtabs aria-label=Views>
+    <button class="tab active" data-view=tracker type=button><kbd>1</kbd>Tracker</button>
+    <button class=tab data-view=roadmap type=button><kbd>2</kbd>Roadmap</button>
+    <button class=tab data-view=map type=button><kbd>3</kbd>Leonida Map</button>
+    <button class=tab data-view=backup id=export-progress type=button><kbd>4</kbd>Backup</button>
+  </nav>
   <div class=masttools>
     <button class="btn toggle" id=spoiler-toggle type=button aria-pressed=false>Spoiler Mode <b id=spoiler-state>Off</b></button>
-    <button class="btn primary" id=export-progress type=button>Export</button>
-    <button class=btn id=import-progress type=button>Import</button>
     <button class=btn id=reset-progress type=button>Reset</button>
   </div>
 </header>
 
 <div class=audit id=audit-strip role=status aria-label="Verification audit"></div>
 
-<div class=statusbar>
-  <nav class=viewtabs aria-label=Views>
-    <button class="tab active" data-view=tracker type=button>Tracker</button>
-    <button class=tab data-view=roadmap type=button>Platinum Roadmap</button>
-  </nav>
-  <div class=progress>
-    <div class=ptext><strong id=progress-label>0 / 55 earned</strong><span id=grade-count></span><span id=progress-pct>0%</span></div>
-    <div class=bar role=progressbar aria-label="Overall completion"><i id=progress-fill></i></div>
-  </div>
-</div>
-
 <main>
-  <section class="view split" id=tracker-view>
-    <div class=listpane>
-      <div class=filters id=trophy-filters role=group aria-label="Trophy filters"></div>
-      <div class=listmeta>
-        <span id=list-count>All 55 trophies</span>
-        <label class=search><input id=trophy-search type=search placeholder="Search name, mission, source…" autocomplete=off aria-label="Search trophies"></label>
+  <section class="view stack" id=tracker-view>
+    <div class=codex id=codex-strip aria-label="Platinum command strip"></div>
+    <div class=split>
+      <div class=listpane>
+        <div class=filters id=trophy-filters role=group aria-label="Trophy filters"></div>
+        <div class=listmeta>
+          <span id=list-count>All 55 trophies</span>
+          <label class=search><input id=trophy-search type=search placeholder="Search name, mission, source…  ( / )" autocomplete=off aria-label="Search trophies"></label>
+        </div>
+        <div class=trophy-list id=trophy-list tabindex=-1></div>
       </div>
-      <div class=trophy-list id=trophy-list tabindex=-1></div>
+      <aside class=sidepane id=trophy-detail aria-live=polite></aside>
     </div>
-    <aside class=sidepane id=trophy-detail aria-live=polite></aside>
   </section>
 
-  <section class="view split hidden" id=roadmap-view>
-    <div class=roadmap id=roadmap-stages></div>
-    <aside class=sidepane id=save-guardrails aria-live=polite></aside>
+  <section class="view stack hidden" id=roadmap-view>
+    <div id=story-timeline></div>
+    <div class=split>
+      <div class=roadmap id=roadmap-stages></div>
+      <aside class=sidepane id=save-guardrails aria-live=polite></aside>
+    </div>
   </section>
+
+  <section class="view hidden" id=map-view></section>
 </main>
 
 <script type="module" src="js/app.js"></script>

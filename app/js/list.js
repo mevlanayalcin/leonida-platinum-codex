@@ -1,31 +1,24 @@
-// The tracker list: progress with earned-by-grade counters, filter chips with live counts,
+// The tracker list: filter chips with live counts, search, a sort menu,
 // and all 55 rows with medallion, official name and description, flags and cited-source count.
-import { state, emit, toggleEarned, select, togglePeek, setPane } from './state.js';
+import { state, emit, toggleEarned, select, togglePeek, setView, setPane, toggleSpoilerShield, resetProgress } from './state.js';
 import { FILTERS, filterByKind, countFor, isMasked, isShieldable, maskName, MASK_DESCRIPTION } from './filters.js';
 import { medal, GRADE_LABEL } from './dom.js';
 
 const $ = (s) => document.querySelector(s);
 const ui = {
   list: $('#trophy-list'), filters: $('#trophy-filters'), search: $('#trophy-search'), count: $('#list-count'),
-  label: $('#progress-label'), grades: $('#grade-count'), pct: $('#progress-pct'), fill: $('#progress-fill'),
-  spoiler: $('#spoiler-toggle'), spoilerState: $('#spoiler-state'),
 };
 let doc;
+const RANK = { platinum: 0, gold: 1, silver: 2, bronze: 3 };
+const SORTS = {
+  ps5: ['PS5 order', (a, b) => a.id - b.id],
+  stage: ['Roadmap phase', (a, b) => a.stage - b.stage || a.id - b.id],
+  grade: ['Grade', (a, b) => RANK[a.grade] - RANK[b.grade] || a.id - b.id],
+  todo: ['Unearned first', (a, b) => state.earned.has(a.id) - state.earned.has(b.id) || a.id - b.id],
+};
+let sortBy = 'ps5';
 
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-
-function renderHeader() {
-  const total = doc.trophies.length;
-  const won = doc.trophies.filter((t) => state.earned.has(t.id));
-  const pct = Math.round((won.length / total) * 100);
-  const by = (g) => won.filter((t) => t.grade === g).length;
-  ui.label.textContent = `${won.length} / ${total} earned`;
-  ui.grades.textContent = `${by('platinum')}P ${by('gold')}G ${by('silver')}S ${by('bronze')}B`;
-  ui.pct.textContent = `${pct}%`;
-  ui.fill.style.width = `${pct}%`;
-  ui.spoiler.setAttribute('aria-pressed', String(state.spoiler));
-  ui.spoilerState.textContent = state.spoiler ? 'On' : 'Off';
-}
 
 function renderFilters() {
   ui.filters.innerHTML = FILTERS.map((f) => {
@@ -60,12 +53,12 @@ function rowHTML(t) {
 }
 
 function renderList() {
-  const shown = filterByKind(doc.trophies, state);
+  const shown = filterByKind(doc.trophies, state).sort(SORTS[sortBy][1]);
   const scroll = ui.list.scrollTop;
   ui.list.innerHTML = shown.length ? shown.map(rowHTML).join('') : emptyHTML();
   ui.list.scrollTop = scroll;
   const labels = FILTERS.filter((f) => state.cats.has(f.id) || state.flags.has(f.id)).map((f) => f.label);
-  ui.count.textContent = !labels.length && !state.query.trim() ? `All ${doc.trophies.length} trophies · official PS5 order`
+  ui.count.textContent = !labels.length && !state.query.trim() ? `All ${doc.trophies.length} trophies · ${SORTS[sortBy][0]}`
     : `${shown.length} of ${doc.trophies.length} shown${labels.length ? ` · ${labels.join(' + ')}` : ''}`;
   if (state.autoScroll) {
     state.autoScroll = false;
@@ -75,15 +68,38 @@ function renderList() {
 
 /** Render every tracker surface; called on boot and after each state change. */
 export function renderTracker() {
-  renderHeader();
   renderFilters();
   renderList();
 }
 
+/** Keys: / search, 1-4 views, S spoiler shield, Esc back to the guide. */
+const go = (v) => (v === 'backup' ? setPane('io') : (state.pane = 'detail', setView(v)));
+function bindShell() {
+  document.querySelectorAll('.tab').forEach((tab) => { tab.onclick = () => go(tab.dataset.view); });
+  $('#spoiler-toggle').onclick = () => toggleSpoilerShield();
+  $('#reset-progress').onclick = () => { if (confirm('Clear all local progress?')) resetProgress(); };
+  document.onkeydown = (e) => {
+    if (/INPUT|TEXTAREA|SELECT/.test(e.target.tagName) || e.ctrlKey || e.metaKey || e.altKey) return;
+    const v = ['tracker', 'roadmap', 'map', 'backup'][e.key - 1];
+    if (v) go(v);
+    else if (e.key === 's' || e.key === 'S') toggleSpoilerShield();
+    else if (e.key === 'Escape') go('tracker');
+    else if (e.key === '/') { e.preventDefault(); go('tracker'); ui.search.focus(); }
+  };
+}
+
 export function mountTracker(data) {
   doc = data;
+  bindShell();
   ui.search.value = state.query;
   ui.search.oninput = () => { state.query = ui.search.value; renderList(); };
+  const menu = document.createElement('select');
+  menu.className = 'sort';
+  menu.id = 'trophy-sort';
+  menu.setAttribute('aria-label', 'Sort trophies');
+  menu.innerHTML = Object.entries(SORTS).map(([id, [label]]) => `<option value="${id}">Sort · ${label}</option>`).join('');
+  menu.onchange = () => { sortBy = menu.value; renderList(); };
+  ui.search.parentElement.before(menu);
   ui.filters.onclick = (event) => {
     const id = event.target.closest('[data-filter]')?.dataset.filter;
     const f = FILTERS.find((x) => x.id === id);
@@ -109,13 +125,10 @@ export function mountTracker(data) {
       select(Number(event.target.dataset.id));
     }
   };
-  document.onkeydown = (event) => {
-    if (event.key === 'Escape' && state.pane === 'io') setPane('detail');
-    if (event.key === '/' && event.target.tagName !== 'INPUT' && event.target.tagName !== 'TEXTAREA') { event.preventDefault(); ui.search.focus(); }
-  };
 }
 
-const LIST_CSS = '.chip{display:inline-flex;align-items:center;gap:5px;height:29px;padding:0 7px;border:1px solid var(--line);border-radius:8px;background:#1a2339;color:var(--body);font-size:11.5px;font-weight:750;white-space:nowrap}'
+const LIST_CSS = '.listmeta .sort{margin-left:auto;margin-right:6px;height:28px;padding:0 6px;border:1px solid var(--line);border-radius:8px;background:#0a0f1c;color:var(--body);font:700 11.5px var(--font);text-transform:none;letter-spacing:0}'
+  + '.chip{display:inline-flex;align-items:center;gap:5px;height:29px;padding:0 7px;border:1px solid var(--line);border-radius:8px;background:#1a2339;color:var(--body);font-size:11.5px;font-weight:750;white-space:nowrap}'
   + '.chip b{font-size:10.5px;color:var(--dim)}'
   + '.chip[aria-pressed=true]{color:#fff;border-color:#ff5c8aa6;background:#ff5c8a33}.chip[aria-pressed=true] b{color:#ffc2d3}'
   + '.chip.k-flag[aria-pressed=true]{border-color:#38e3cf99;background:#38e3cf26}.chip.k-flag[aria-pressed=true] b{color:#b5fbf1}'

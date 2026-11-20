@@ -1,9 +1,9 @@
-// Browser-local tracker state: earned trophies, checked steps, selection and the spoiler
-// setting persist in localStorage; nothing leaves this browser.
+// Browser-local tracker state: earned trophies, checked steps, 100% counters, selection and the
+// spoiler setting persist in localStorage; nothing leaves this browser.
 const KEY = 'lpc.v1';
 
 export const state = {
-  earned: new Set(), steps: {}, spoiler: false, peek: new Set(), query: '',
+  earned: new Set(), steps: {}, counters: {}, spoiler: false, peek: new Set(), query: '',
   cats: new Set(), flags: new Set(), selected: 28, view: 'tracker',
   pane: 'detail', ioMode: 'export', autoScroll: false,
 };
@@ -17,6 +17,7 @@ export function loadProgress() {
   if (!raw || typeof raw !== 'object') return;
   state.earned = new Set(ints(raw.earned));
   for (const [id, list] of Object.entries(raw.steps ?? {})) state.steps[id] = ints(list).sort((a, b) => a - b);
+  for (const [k, n] of Object.entries(raw.counters ?? {})) if (Number.isInteger(n) && n > 0) state.counters[k] = n;
   if (typeof raw.spoiler === 'boolean') state.spoiler = raw.spoiler;
   if (Number.isInteger(raw.selected)) state.selected = raw.selected;
 }
@@ -24,7 +25,7 @@ export function loadProgress() {
 export function saveProgress() {
   try {
     localStorage.setItem(KEY, JSON.stringify({
-      v: 1, earned: [...state.earned].sort((a, b) => a - b), steps: state.steps,
+      v: 1, earned: [...state.earned].sort((a, b) => a - b), steps: state.steps, counters: state.counters,
       spoiler: state.spoiler, selected: state.selected,
     }));
   } catch (err) { console.warn('Codex: progress could not be saved.', err); }
@@ -32,7 +33,7 @@ export function saveProgress() {
 
 export function subscribe(fn) { listeners.add(fn); }
 export function emit() { for (const fn of listeners) fn(); }
-const commit = () => { saveProgress(); emit(); };
+export const commit = () => { saveProgress(); emit(); };
 
 export function toggleEarned(id) {
   state.earned.has(id) ? state.earned.delete(id) : state.earned.add(id);
@@ -78,9 +79,10 @@ export function toggleStep(id, index) {
   commit();
 }
 
-export function replaceProgress(ids, steps = {}) {
+export function replaceProgress(ids, steps = {}, counters = {}) {
   state.earned = new Set(ids);
   state.steps = steps;
+  state.counters = counters;
   state.peek.clear();
   commit();
 }
