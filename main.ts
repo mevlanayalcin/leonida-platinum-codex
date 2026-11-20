@@ -5,10 +5,10 @@
 // screenshots, the first load's files and bytes, and your source), with the vendored make.fun library. Leave
 // vendor/makefun-frontend.ts as it is: the scorer requires dossier.json to be byte for byte what its own copy writes.
 //
-// v6 cites every claim to all the sites that state it: each walkthrough step is [text, ...cites] and each guide phrase
-// ends in a (Key, Key) group, where a key names a page in trophies.json's sourceCatalog (28 pages on 9 sites:
+// v7 cites every claim to all the sites that state it: each walkthrough step is [text, ...cites] and each guide phrase
+// ends in a (Key, Key) group, where a key names a page in trophies.json's sourceCatalog (40 pages on 9 sites:
 // PowerPyx, Push Square, IGN Wiki, Exophase, TrueTrophies, Beebom, Game Checklists, OutputLag, TrueAchievements,
-// all re-read on 20 Nov 2026). A second site is listed only where that page states the same fact. Where the sites
+// all fetched and read on 20 Nov 2026). A second site is listed only where that page states the same fact. Where the sites
 // disagree, trophies.json keeps a source disagreement panel with each side and its cites. The first load is still
 // index.html, styles.css, app.js and state.js (under 5,500 bytes gzip-9); verify.js (claim counts), the command
 // strip, list, cited guide, roadmap, map and backup pane are literal import() modules.

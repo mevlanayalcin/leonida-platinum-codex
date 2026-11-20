@@ -112,7 +112,7 @@ export function renderTrophyDetail(host, trophy, doc) {
   if (trophy.count) meta.append(pill(`Tracked ${trophy.count.toLocaleString('en-US')}`));
   if (trophy.hidden) meta.append(pill('Hidden on PS5'));
   meta.append(pill(`${trophy.multi}/${trophy.claims.length} claims on 2+ sites`, 'green'));
-  if (trophy.conflicts.length) meta.append(pill(`${trophy.conflicts.length} disagreement${trophy.conflicts.length > 1 ? 's' : ''}`, 'amber'));
+  if (trophy.conflicts.length) meta.append(pill(`${trophy.conflicts.length} dispute${trophy.conflicts.length > 1 ? 's' : ''}`, 'amber'));
   host.append(meta);
 
   if (trophy.missable) {
@@ -122,9 +122,9 @@ export function renderTrophyDetail(host, trophy, doc) {
     host.append(callout('sun', `Chapter save · slot ${trophy.saveSlot} of 10`, trophy.missableNote, ['PPX'], trophy.sources));
   }
 
-  host.append(appendCited(el('p', 'guide'), trophy.guide, trophy.sources));
-  trophy.conflicts.forEach((c, i) => host.append(conflictPanel(c, doc.sources, i === 0)));
-  if (trophy.checklist) host.append(...checklistBlock(trophy));
+  // The panel about this trophy alone opens above the steps; wider panels follow them, folded.
+  const [lead, ...more] = [...trophy.conflicts].sort((a, b) => a.trophies.length - b.trophies.length);
+  if (lead) host.append(conflictPanel(lead, doc.sources, true));
 
   const done = (state.steps[trophy.id] ?? []).length;
   const stepHead = el('div', 'seclabel');
@@ -146,7 +146,9 @@ export function renderTrophyDetail(host, trophy, doc) {
   });
   const srcHead = el('div', 'seclabel');
   srcHead.append(el('span', null, 'Cited sources'), el('b', null, `checked ${CHECKED}`));
-  host.append(stepHead, steps, srcHead, sourceChips(el('div', 'srcrow'), trophy.sources), earnedButton(trophy));
+  host.append(stepHead, steps, ...more.map((c) => conflictPanel(c, doc.sources, false)), appendCited(el('p', 'guide'), trophy.guide, trophy.sources));
+  if (trophy.checklist) host.append(...checklistBlock(trophy));
+  host.append(srcHead, sourceChips(el('div', 'srcrow'), trophy.sources), earnedButton(trophy));
   host.scrollTop = keep;
 }
 
@@ -171,8 +173,8 @@ const DETAIL_CSS = '.dtop{display:flex;align-items:center;justify-content:space-
   + '.conflict summary{display:flex;gap:7px;align-items:baseline;cursor:pointer;font-size:11.5px;font-weight:800;color:#ffe9c7;list-style:none}'
   + '.conflict summary b{font-size:9.5px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:#ffb24d;white-space:nowrap}'
   + '.csides{display:flex;flex-direction:column;gap:3px;margin-top:5px}'
-  + '.cside{display:grid;grid-template-columns:auto minmax(0,1fr);gap:7px;font-size:11.4px;line-height:1.38;color:#f6ead8}'
-  + '.cwho{display:flex;flex-direction:column;gap:2px;align-items:start}'
+  + '.cside{font-size:11.3px;line-height:1.36;color:#f6ead8}'
+  + '.cwho{display:inline-flex;gap:2px;margin-right:6px;vertical-align:1px}'
   + '.ccall{margin:5px 0 0;padding-top:4px;border-top:1px dashed #ffb24d59;font-size:11.2px;color:#ffd9a3}'
   + '.counters{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px}'
   + '.counter{padding:4px 7px 5px;border:1px solid var(--line);border-radius:8px;background:#1a2440;text-decoration:none;line-height:1.2}'
