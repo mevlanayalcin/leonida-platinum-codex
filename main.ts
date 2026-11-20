@@ -8,7 +8,8 @@
 // v4 cites every step: the first load is index.html, styles.css, app.js and state.js (under 5,500 bytes gzip-9);
 // the 55-row list, cited guide, roadmap, source verification matrix and backup pane are literal import() modules.
 // Each trophy's guide names its sources inline, and each walkthrough step is { text, cite } where cite names one of
-// that trophy's sources (PowerPyx, Push Square, IGN Wiki, Exophase, Beebom, TrueTrophies; pages checked 19 Nov 2026).
+// that trophy's sources (PowerPyx, Push Square, IGN Wiki, Exophase, Beebom, TrueTrophies, and from the 20 Nov day-2
+// pass Game Checklists, OutputLag and TrueAchievements; pages checked 19-20 Nov 2026).
 // The guard below refuses the build if any official count, grade split, hidden count, guide or step citation drifts,
 // and the app's audit strip recomputes the same numbers at boot.
 // Screenshots are real 1280x800 renders, the first by name is the cover, and shots.json records the view each shows.
@@ -32,6 +33,7 @@ type Step = { text: string; cite: string };
 type Entry = {
   id: number; name: string; grade: 'platinum' | 'gold' | 'silver' | 'bronze'; hidden?: boolean;
   guide: string; steps: Step[]; sources: Source[]; saveSlot?: number | null; missable?: boolean;
+  missableChapter?: string; missableLabel?: string; missableShort?: string; missableNote?: string; missableCites?: string[];
 };
 const dataFile = join(here, 'app', 'data', 'trophies.json');
 const entries: Entry[] = JSON.parse(readFileSync(dataFile, 'utf8')).trophies;
@@ -58,7 +60,12 @@ const problems = [
   citedGuides.length === 55 ? '' : `${citedGuides.length}/55 guides name one of their sources inline`,
   badSources.length ? `sources need a page and a deep https URL: #${badSources.map((entry) => entry.id).join(', #')}` : '',
   uncited.length ? `${uncited.length} uncited steps: ${uncited.slice(0, 3).join('; ')}` : '',
-  entries.filter((entry) => entry.missable).length === 1 ? '' : 'expected exactly 1 missable flag',
+  // Two missable risks (the Ch.1 balcony meditation, Yago's timed Ch.3 race), each with a chapter tag, a note
+  // and callout cites that name sources listed on that same trophy.
+  entries.filter((entry) => entry.missable).length === 2 ? '' : 'expected exactly 2 missable flags',
+  entries.filter((entry) => entry.missable && !(entry.missableChapter && entry.missableLabel && entry.missableShort
+    && entry.missableNote && entry.missableCites?.length && entry.missableCites.every((label) => labelsOf(entry).has(label))))
+    .map((entry) => `missable #${entry.id} lacks its chapter tag, note or own-source cites`).join('; '),
   saveSlots === '1,2,3,4,5,6,7,8,9,10' ? '' : `chapter save slots are ${saveSlots}, expected 1-10`,
 ].filter(Boolean);
 if (problems.length) throw new Error(`app/data/trophies.json failed validation: ${problems.join('; ')}`);
@@ -95,7 +102,7 @@ if (firstLoadBytes >= 5500) throw new Error(`first load is ${firstLoadBytes} byt
 
 writeFileSync(join(out, 'dossier.json'), dossier);
 
-console.log(`Leonida Platinum Codex: ${entries.length} trophies (${grades.platinum}P/${grades.gold}G/${grades.silver}S/${grades.bronze}B, 28 hidden), ${citedGuides.length}/55 cited guides, ${stepCount - uncited.length}/${stepCount} cited steps, 0 uncited`);
+console.log(`Leonida Platinum Codex: ${entries.length} trophies (${grades.platinum}P/${grades.gold}G/${grades.silver}S/${grades.bronze}B, 28 hidden), ${citedGuides.length}/55 cited guides, ${stepCount - uncited.length}/${stepCount} cited steps, 0 uncited, ${entries.filter((entry) => entry.missable).length} missable risks`);
 console.log(`screenshots: ${shots.map((shot) => `${shot} ${Math.round(statSync(join(shotDir, shot)).size / 1024)} KiB`).join(', ')}`);
 console.log(`first load: ${firstLoadFiles} files, ${firstLoadBytes} bytes gzip-9 (under 5500)`);
 console.log(`dossier: ${dossier.length} bytes -> ${join(out, 'dossier.json')}`);

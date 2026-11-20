@@ -1,6 +1,6 @@
 // Shared view helpers: the element builder, the four grade medallions (one inline SVG sprite:
 // diamond, star, crest, shield), source chips and the per-step cite pill, plus their styles.
-export const CHECKED = '19 Nov 2026';
+export const CHECKED = '20 Nov 2026';
 export const GRADE_LABEL = { platinum: 'Platinum', gold: 'Gold', silver: 'Silver', bronze: 'Bronze' };
 
 const stops = (id, a, b) => `<linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${a}"/><stop offset="1" stop-color="${b}"/></linearGradient>`;

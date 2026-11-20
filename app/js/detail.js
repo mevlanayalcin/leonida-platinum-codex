@@ -94,7 +94,8 @@ export function renderTrophyDetail(host, trophy, doc) {
   host.append(meta);
 
   if (trophy.missable) {
-    host.append(callout('coral', 'Missable risk · Chapter 1 only', trophy.missableNote, ['PowerPyx', 'Beebom'], trophy.sources));
+    // Each missable carries its own chapter label and the sources that flag it, in trophies.json.
+    host.append(callout('coral', `Missable risk · ${trophy.missableLabel}`, trophy.missableNote, trophy.missableCites, trophy.sources));
   } else if (trophy.saveSlot) {
     host.append(callout('sun', `Chapter save · slot ${trophy.saveSlot} of 10`, trophy.missableNote, ['PowerPyx'], trophy.sources));
   }

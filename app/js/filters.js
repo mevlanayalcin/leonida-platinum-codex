@@ -1,4 +1,5 @@
-// Filter and spoiler rules. "Missable" is the one Chapter 1 risk; "Chapter Saves" are the ten
+// Filter and spoiler rules. "Missable" holds the two flagged risks (the Ch.1 balcony meditation and
+// Yago's timed Ch.3 race); "Chapter Saves" are the ten
 // trophies that mark PowerPyx's start/end-of-chapter save slots.
 export const FILTERS = [
   { id: 'all', label: 'All', kind: 'all' },

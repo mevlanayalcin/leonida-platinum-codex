@@ -6,8 +6,8 @@ import { isMasked, maskName } from './filters.js';
 import { appendCited } from './detail.js';
 
 const STAGES = [
-  { n: 1, title: 'Story + the one missable', tone: '#ff5c8a',
-    line: "Play the 5 chapters, do Lucia's Chapter 1 balcony meditation, save at each chapter start and end (PowerPyx, Beebom)." },
+  { n: 1, title: 'Story + 2 missable risks', tone: '#ff5c8a',
+    line: "Play the 5 chapters, save at each chapter start and end (PowerPyx); do Lucia's Ch.1 balcony meditation (Beebom) and Yago's timed Ch.3 race on sight (Game Checklists)." },
   { n: 2, title: '100% checklist & big counters', tone: '#38e3cf',
     line: 'After the credits: 100 optional missions, 200 vehicles, 100 animals, 300 stunts, 70 challenges (PowerPyx, IGN Wiki).' },
   { n: 3, title: 'Strangers, collectibles & clean-up', tone: '#ffc061',
@@ -15,9 +15,13 @@ const STAGES = [
     groups: [['strangers', 'Strangers'], ['world', 'Collectibles & World'], ['activities', 'Activities & Combat'], ['platinum', 'Platinum']] },
 ];
 const FACTS = [['55/55', 'mapped'], ['~200 h', 'PowerPyx'], ['1', 'playthrough'], ['0', 'online'], ['No', 'mission replay'], ['4/10', 'difficulty']];
+// [source, date last read, scope]. PowerPyx was re-read on 20 Nov; the three day-2 sources were added then.
 const MATRIX = [
-  ['PowerPyx', 'Roadmap + all 55 how-tos'], ['Exophase', 'Official names, grades, counts'], ['Push Square', 'Roadmap, menu paths, counts'],
-  ['IGN Wiki', '100% bars, maps, missions'], ['Beebom', 'All 18 meditation spots'], ['TrueTrophies', 'PS5 list · 28 secret'],
+  ['PowerPyx', '20 Nov', 'Roadmap + all 55 how-tos'], ['Exophase', '19 Nov', 'Official names, grades, counts'],
+  ['Push Square', '19 Nov', 'Roadmap, menu paths, counts'], ['IGN Wiki', '19 Nov', '100% bars, maps, missions'],
+  ['Game Checklists', '20 Nov', 'Missables: Yago timed race'], ['OutputLag', '20 Nov', 'Stranger strands, char locks'],
+  ['TrueAchievements', '20 Nov', 'Bad Luck, I Guess method'], ['Beebom', '19 Nov', 'All 18 meditation spots'],
+  ['TrueTrophies', '19 Nov', 'PS5 list · 28 secret'],
 ];
 
 function sourceIndex(doc) {
@@ -95,7 +99,7 @@ function renderGuardrails(host, doc, sources) {
 
   const label = (text, count) => { const l = el('div', 'seclabel'); l.append(el('span', null, text), el('b', null, String(count))); return l; };
   host.append(label('Missable risk', missable.length));
-  for (const t of missable) host.append(guardRow(t, 'Ch.1', "Ch.1 only · Lucia's balcony"));
+  for (const t of missable) host.append(guardRow(t, t.missableChapter, t.missableShort));
   host.append(label('Chapter saves', saves.length));
   for (const t of saves) host.append(guardRow(t, `Slot ${t.saveSlot}`, t.saveNote));
 
@@ -104,12 +108,12 @@ function renderGuardrails(host, doc, sources) {
   mhead.append(el('h3', null, 'Source Verification Matrix'), el('span', 'scount', `checked ${CHECKED}`));
   card.append(mhead);
   const headRow = el('div', 'mrow mhead');
-  for (const column of ['Source', 'Coverage', 'Date', 'Scope']) headRow.append(el('span', null, column));
+  for (const column of ['Source', 'Cites', 'Read', 'Scope']) headRow.append(el('span', null, column));
   card.append(headRow);
-  for (const [label, scope] of MATRIX) {
+  for (const [label, date, scope] of MATRIX) {
     const covered = doc.trophies.filter((t) => t.sources.some((s) => s.label === label)).length;
     const row = el('div', 'mrow');
-    row.append(link(null, sources.get(label).url, label), el('b', null, `${covered}/${doc.trophies.length}`), el('span', null, '19 Nov'), el('span', null, scope));
+    row.append(link(null, sources.get(label).url, label), el('b', null, `${covered}/${doc.trophies.length}`), el('span', null, date), el('span', null, scope));
     card.append(row);
   }
   const steps = doc.trophies.reduce((n, t) => n + t.steps.length, 0);
@@ -134,13 +138,13 @@ const ROADMAP_CSS = '.roadmap{min-height:0;overflow-y:auto;padding-right:2px}'
   + '.glabel{display:inline-flex;align-items:center;height:21px;padding:0 8px;border-radius:6px;background:#ffc06129;font-size:10.5px;font-weight:850;letter-spacing:.04em;text-transform:uppercase;color:#ffdc9c;white-space:nowrap}'
   + '.glabel:not(:first-child){margin-left:6px}'
   + '#save-guardrails .stitle h3{font-size:15px}'
-  + '.guardrow{width:100%;display:grid;grid-template-columns:50px auto minmax(0,1fr);gap:9px;align-items:center;padding:3px 0;border-top:1px solid var(--line2);text-align:left;font-size:11.5px;line-height:1.3}'
+  + '.guardrow{width:100%;display:grid;grid-template-columns:50px auto minmax(0,1fr);gap:9px;align-items:center;padding:2px 0;border-top:1px solid var(--line2);text-align:left;font-size:11.5px;line-height:1.3}'
   + '.guardrow b{font-weight:750;white-space:nowrap}.gnote{text-align:right;color:var(--muted);font-size:11px;white-space:nowrap}'
   + '.slot{padding:1px 0;border-radius:5px;background:#ffc06124;color:#ffe2a8;font-size:10px;font-weight:850;text-align:center}.slot.risk{background:#ff5c8a4d;color:#ffe1ea}'
-  + '.matrix{margin-top:10px;padding:9px 11px 8px;border:1px solid #38e3cf4d;border-radius:11px;background:#0d1b26}'
+  + '.matrix{margin-top:7px;padding:7px 11px 6px;border:1px solid #38e3cf4d;border-radius:11px;background:#0d1b26}'
   + '.matrix h3{font-size:13.5px}'
-  + '.mrow{display:grid;grid-template-columns:86px 64px 48px minmax(0,1fr);column-gap:12px;align-items:center;padding:2px 0;border-top:1px solid var(--line2);font-size:11px;font-variant-numeric:tabular-nums;color:#d2e8e3;white-space:nowrap}'
-  + '.mhead{margin-top:6px;border-top:0;font-size:9.5px;font-weight:850;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}'
+  + '.mrow{display:grid;grid-template-columns:108px 42px 44px minmax(0,1fr);column-gap:11px;align-items:center;padding:1px 0;border-top:1px solid var(--line2);font-size:11px;font-variant-numeric:tabular-nums;color:#d2e8e3;white-space:nowrap}'
+  + '.mhead{margin-top:4px;border-top:0;font-size:9.5px;font-weight:850;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}'
   + '.mrow a{font-weight:750;color:#bff8ef;text-decoration:none}.mrow b{color:#fff}'
   + '.mnote{margin:5px 0 0;font-size:10.5px;color:#9fd8cc}';
 document.head.append(Object.assign(document.createElement('style'), { textContent: ROADMAP_CSS }));
