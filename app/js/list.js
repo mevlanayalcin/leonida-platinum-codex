@@ -1,31 +1,28 @@
-// The tracker list core: progress header, truthful filter pills and all 55 rows.
-// Loaded by app.js right after the trophy data, so the first HTML/CSS paint stays tiny.
-import { state, emit, toggleEarned, select, reveal, setPane } from './state.js';
-import { FILTERS, filterByKind, countFor, isMasked, maskName } from './filters.js';
+// The tracker list: progress with earned-by-grade counters, filter chips with live counts,
+// and all 55 rows with medallion, official name and description, flags and cited-source count.
+import { state, emit, toggleEarned, select, togglePeek, setPane } from './state.js';
+import { FILTERS, filterByKind, countFor, isMasked, isShieldable, maskName, MASK_DESCRIPTION } from './filters.js';
+import { medal, GRADE_LABEL } from './dom.js';
 
 const $ = (s) => document.querySelector(s);
 const ui = {
   list: $('#trophy-list'), filters: $('#trophy-filters'), search: $('#trophy-search'), count: $('#list-count'),
-  label: $('#progress-label'), pct: $('#progress-pct'), fill: $('#progress-fill'),
+  label: $('#progress-label'), grades: $('#grade-count'), pct: $('#progress-pct'), fill: $('#progress-fill'),
   spoiler: $('#spoiler-toggle'), spoilerState: $('#spoiler-state'),
 };
-const GRADE = { platinum: '◆ Platinum', gold: '★ Gold', silver: '✦ Silver', bronze: '● Bronze' };
 let doc;
 
-const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-const badge = (grade) => {
-  const [icon, label] = GRADE[grade].split(' ');
-  return `<span class="grade ${grade}" title="${label} trophy"><i>${icon}</i>${label}</span>`;
-};
+const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 function renderHeader() {
   const total = doc.trophies.length;
-  const earned = doc.trophies.filter((t) => state.earned.has(t.id)).length;
-  const pct = Math.round((earned / total) * 100);
-  ui.label.textContent = `${earned} of ${total} earned`;
+  const won = doc.trophies.filter((t) => state.earned.has(t.id));
+  const pct = Math.round((won.length / total) * 100);
+  const by = (g) => won.filter((t) => t.grade === g).length;
+  ui.label.textContent = `${won.length} / ${total} earned`;
+  ui.grades.textContent = `${by('platinum')}P ${by('gold')}G ${by('silver')}S ${by('bronze')}B`;
   ui.pct.textContent = `${pct}%`;
   ui.fill.style.width = `${pct}%`;
-  ui.fill.parentElement.setAttribute('aria-valuenow', String(pct));
   ui.spoiler.setAttribute('aria-pressed', String(state.spoiler));
   ui.spoilerState.textContent = state.spoiler ? 'On' : 'Off';
 }
@@ -34,29 +31,32 @@ function renderFilters() {
   ui.filters.innerHTML = FILTERS.map((f) => {
     const on = f.kind === 'all' ? !state.cats.size && !state.flags.size
       : f.kind === 'cat' ? state.cats.has(f.id) : state.flags.has(f.id);
-    return `<button type="button" class="chip ${f.kind}" data-filter="${f.id}" aria-pressed="${on}">${f.label}<span class="n">${countFor(f.id, doc.trophies, state.earned)}</span></button>`;
+    return `<button type="button" class="chip k-${f.kind}" data-filter="${f.id}" aria-pressed="${on}">${f.label}<b>${countFor(f.id, doc.trophies, state)}</b></button>`;
   }).join('');
 }
 
 function emptyHTML() {
-  if (state.cats.has('online') && state.cats.size === 1) return '<div class="callout"><h3>0 online trophies at launch</h3><p>All 55 are earned in single-player. Try Story, Collectibles or Activities.</p></div>';
-  if (state.query.trim()) return `<div class="callout"><h3>No trophy matches “${esc(state.query.trim())}”</h3><p>Try a name, a mission, a source or a number from a walkthrough.</p></div>`;
-  return '<div class="callout"><h3>Nothing matches these filters</h3><p>Clear a filter or press All for the full official list.</p></div>';
+  if (state.cats.has('online') && state.cats.size === 1) return '<p class="empty"><b>0 online trophies.</b> All 55 are single-player (PowerPyx, Push Square).</p>';
+  return '<p class="empty"><b>Nothing matches.</b> Clear a filter or press All for the full official list.</p>';
 }
 
 function rowHTML(t) {
   const earned = state.earned.has(t.id);
   const masked = isMasked(t, state);
   const name = masked ? maskName(t) : t.name;
-  const flag = t.missable ? '<span class="flag missable">Missable</span>'
-    : t.missableNote ? '<span class="flag save">Chapter save</span>' : '';
-  const count = !masked && t.count && t.category !== 'story' ? `<span class="flag tracked">Tracked ${t.count}</span>` : '';
-  const hide = masked ? `<span class="redacted">${name}<i></i></span>` : esc(name);
-  const desc = masked ? 'Spoiler shielded — press Peek to reveal.' : esc(t.description);
-  return `<div class="row${earned ? ' earned' : ''}${t.id === state.selected ? ' sel' : ''}" role="button" tabindex="0" data-id="${t.id}" aria-label="${esc(name)}, ${t.grade}${earned ? ', earned' : ''}">
-<button class="tick" type="button" aria-pressed="${earned}" aria-label="${earned ? 'Unmark' : 'Mark'} ${esc(name)} as earned">${earned ? '✓' : ''}</button>
-<div class="rowmain"><div class="rowname">${hide}</div><div class="rowdesc">${desc}</div></div>
-<div class="rowmeta">${badge(t.grade)}${flag}${count}${masked ? '<button class="flag peek" type="button">Peek</button>' : ''}</div></div>`;
+  let flags = '';
+  if (masked) flags = '<button class="flag peekbtn" type="button" data-peek>Peek</button>';
+  else {
+    if (state.spoiler && isShieldable(t) && earned) flags += '<span class="flag tracked">Earned · unshielded</span>';
+    if (state.peek.has(t.id)) flags += '<button class="flag peeked" type="button" data-peek>Peeked · hide</button>';
+    if (t.missable) flags += '<span class="flag missable">Missable risk</span>';
+    else if (t.saveSlot && !state.spoiler) flags += `<span class="flag save">Save slot ${t.saveSlot}</span>`;
+    if (t.count && t.category !== 'story') flags += `<span class="flag tracked">Tracked ${t.count.toLocaleString('en-US')}</span>`;
+  }
+  return `<div class="row${earned ? ' earned' : ''}${t.id === state.selected ? ' sel' : ''}" role="button" tabindex="0" data-id="${t.id}">
+<button class="tick" type="button" aria-pressed="${earned}" aria-label="${earned ? 'Unmark' : 'Mark'} ${esc(name)} as earned">${earned ? '✓' : ''}</button>${medal(t.grade, 26)}
+<div class="rowmain"><div class="rowname${masked ? ' masked' : ''}">${esc(name)}</div><div class="rowdesc">${masked ? MASK_DESCRIPTION : esc(t.description)}</div></div>
+<div class="rowmeta">${flags}<span class="gword ${t.grade}">${GRADE_LABEL[t.grade]}</span><span class="flag cited">${t.sources.length} cited</span></div></div>`;
 }
 
 function renderList() {
@@ -64,17 +64,12 @@ function renderList() {
   const scroll = ui.list.scrollTop;
   ui.list.innerHTML = shown.length ? shown.map(rowHTML).join('') : emptyHTML();
   ui.list.scrollTop = scroll;
-  const labels = FILTERS.filter((f) => (f.kind === 'cat' && state.cats.has(f.id)) || (f.kind === 'flag' && state.flags.has(f.id))).map((f) => f.label);
-  ui.count.textContent = !state.cats.size && !state.flags.size && !state.query.trim() ? `All ${doc.trophies.length} trophies`
+  const labels = FILTERS.filter((f) => state.cats.has(f.id) || state.flags.has(f.id)).map((f) => f.label);
+  ui.count.textContent = !labels.length && !state.query.trim() ? `All ${doc.trophies.length} trophies · official PS5 order`
     : `${shown.length} of ${doc.trophies.length} shown${labels.length ? ` · ${labels.join(' + ')}` : ''}`;
   if (state.autoScroll) {
     state.autoScroll = false;
-    const row = ui.list.querySelector('.row.sel');
-    if (row) {
-      const box = ui.list.getBoundingClientRect();
-      const rect = row.getBoundingClientRect();
-      if (rect.top < box.top || rect.bottom > box.bottom) ui.list.scrollTop += rect.top - box.top - box.height / 2 + rect.height / 2;
-    }
+    ui.list.querySelector('.row.sel')?.scrollIntoView({ block: 'nearest' });
   }
 }
 
@@ -89,26 +84,23 @@ export function mountTracker(data) {
   doc = data;
   ui.search.value = state.query;
   ui.search.oninput = () => { state.query = ui.search.value; renderList(); };
-
   ui.filters.onclick = (event) => {
-    const chip = event.target.closest('[data-filter]');
-    if (!chip) return;
-    const filter = FILTERS.find((f) => f.id === chip.dataset.filter);
-    if (filter.kind === 'all') { state.cats.clear(); state.flags.clear(); }
-    else if (filter.kind === 'cat') { if (state.cats.has(filter.id)) state.cats.delete(filter.id); else state.cats.add(filter.id); }
-    else if (state.flags.has(filter.id)) state.flags.delete(filter.id);
-    else state.flags.add(filter.id);
-    state.autoScroll = false;
+    const id = event.target.closest('[data-filter]')?.dataset.filter;
+    const f = FILTERS.find((x) => x.id === id);
+    if (!f) return;
+    const set = f.kind === 'cat' ? state.cats : state.flags;
+    if (f.kind === 'all') { state.cats.clear(); state.flags.clear(); }
+    else if (set.has(id)) set.delete(id);
+    else set.add(id);
     emit();
     ui.list.scrollTop = 0;
   };
-
   ui.list.onclick = (event) => {
     const row = event.target.closest('.row');
     if (!row) return;
     const id = Number(row.dataset.id);
     if (event.target.closest('.tick')) toggleEarned(id);
-    else if (event.target.closest('.peek')) reveal(id);
+    else if (event.target.closest('[data-peek]')) togglePeek(id);
     else select(id);
   };
   ui.list.onkeydown = (event) => {
@@ -119,18 +111,24 @@ export function mountTracker(data) {
   };
   document.onkeydown = (event) => {
     if (event.key === 'Escape' && state.pane === 'io') setPane('detail');
-    if (event.key === '/' && event.target.tagName !== 'INPUT') { event.preventDefault(); ui.search.focus(); }
+    if (event.key === '/' && event.target.tagName !== 'INPUT' && event.target.tagName !== 'TEXTAREA') { event.preventDefault(); ui.search.focus(); }
   };
 }
 
-// The list's own styles travel with it and join the page once, keeping the first-load stylesheet small.
-const LIST_CSS = '.rowmeta{display:flex;align-items:center;gap:5px}'
-  + '.row{display:grid;grid-template-columns:23px minmax(0,1fr) auto;gap:11px;align-items:center;padding:8px 12px;border-bottom:1px solid var(--line2);cursor:pointer}'
-  + '.row.sel{background:#ff4d8d1f}'
-  + '.tick{width:21px;height:21px;padding:0;border:1.5px solid #ffffff3d;border-radius:6px;background:#0a1220;display:grid;place-items:center;font-size:11px;font-weight:900;color:transparent}'
-  + '.row.earned .tick{background:var(--teal);border-color:var(--teal);color:#04231f}'
-  + '.rowmain{min-width:0}.rowname{display:flex;gap:7px;font-size:14px;font-weight:680;white-space:nowrap}'
-  + '.rowdesc{font-size:11.8px;color:var(--muted);white-space:nowrap}'
-  + '.redacted{display:inline-flex;align-items:center;gap:6px;color:#ffb3ca;font-weight:750}'
-  + '.redacted i{width:72px;height:8px;border-radius:2px;background:#ff4d8d66}';
+const LIST_CSS = '.chip{display:inline-flex;align-items:center;gap:5px;height:29px;padding:0 7px;border:1px solid var(--line);border-radius:8px;background:#1a2339;color:var(--body);font-size:11.5px;font-weight:750;white-space:nowrap}'
+  + '.chip b{font-size:10.5px;color:var(--dim)}'
+  + '.chip[aria-pressed=true]{color:#fff;border-color:#ff5c8aa6;background:#ff5c8a33}.chip[aria-pressed=true] b{color:#ffc2d3}'
+  + '.chip.k-flag[aria-pressed=true]{border-color:#38e3cf99;background:#38e3cf26}.chip.k-flag[aria-pressed=true] b{color:#b5fbf1}'
+  + '.row{display:grid;grid-template-columns:24px 26px minmax(0,1fr) auto;gap:11px;align-items:center;min-height:55px;padding:7px 14px 7px 12px;border-bottom:1px solid var(--line2);cursor:pointer}'
+  + '.row.sel{background:linear-gradient(90deg,#ff5c8a2e,#ff5c8a0d);box-shadow:inset 3px 0 var(--coral)}'
+  + '.tick{width:22px;height:22px;padding:0;border:1.5px solid #ffffff47;border-radius:6px;background:#0a101d;display:grid;place-items:center;font-size:12px;font-weight:900;color:#0000}'
+  + '.row.earned .tick{background:var(--lagoon);border-color:var(--lagoon);color:#04241f}'
+  + '.rowmain{min-width:0}.rowname{font-size:14.5px;font-weight:720;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'
+  + '.rowname.masked{color:#ffb7cb}.rowname.masked:after{content:"";display:inline-block;width:64px;height:8px;margin-left:8px;border-radius:2px;background:#ff5c8a59}'
+  + '.rowdesc{font-size:12.3px;line-height:1.35;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'
+  + '.rowmeta{display:flex;align-items:center;gap:6px}'
+  + '.gword{width:64px;font-size:10.5px;font-weight:850;letter-spacing:.05em;text-transform:uppercase;text-align:right}'
+  + '.gword.platinum{color:#bff1ff}.gword.gold{color:#ffd56e}.gword.silver{color:#e3e9f3}.gword.bronze{color:#f0ab7c}'
+  + '.peekbtn{color:#1d0a12;background:#ffc061;cursor:pointer}.peeked{color:#2a0612;background:#ff8fb0;cursor:pointer}'
+  + '.empty{margin:0;padding:18px;color:var(--muted)}';
 document.head.append(Object.assign(document.createElement('style'), { textContent: LIST_CSS }));

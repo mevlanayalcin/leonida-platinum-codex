@@ -3,19 +3,19 @@
 <head>
 <meta charset=utf-8>
 <meta name=viewport content="width=device-width,initial-scale=1">
-<title>Leonida Platinum Codex — GTA VI Trophy Guide &amp; Tracker</title>
+<title>Leonida Platinum Codex · GTA VI Trophy Guide &amp; Tracker</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 <header class=masthead>
   <a class=brand href=# id=brand aria-label="Leonida Platinum Codex home">
-    <span class=mark aria-hidden=true>VI</span>
-    <span><span class=eyebrow>55 trophies · 1P 2G 6S 46B · offline</span>
-    <h1>GTA VI Trophy Guide <em>&amp; Tracker</em></h1></span>
+    <svg class=mark viewBox="0 0 40 40" aria-hidden=true><rect width=40 height=40 rx=11 fill="#1b1430"/><circle cx=20 cy=22 r=10 fill="#ff5c8a"/><rect y=22 width=40 height=18 fill="#1b1430"/><path d="M7 25h26M10 29h20M14 33h12" stroke="#38e3cf" stroke-width=2.4 stroke-linecap=round /></svg>
+    <span><span class=eyebrow>GTA VI · PS5 trophy guide &amp; tracker</span>
+    <h1>Leonida Platinum Codex</h1></span>
   </a>
   <div class=masttools>
-    <button class="btn toggle" id=spoiler-toggle type=button aria-pressed=false><span>Spoiler Mode</span> <b id=spoiler-state>Off</b></button>
+    <button class="btn toggle" id=spoiler-toggle type=button aria-pressed=false>Spoiler Mode <b id=spoiler-state>Off</b></button>
     <button class="btn primary" id=export-progress type=button>Export</button>
     <button class=btn id=import-progress type=button>Import</button>
     <button class=btn id=reset-progress type=button>Reset</button>
@@ -30,7 +30,7 @@
     <button class=tab data-view=roadmap type=button>Platinum Roadmap</button>
   </nav>
   <div class=progress>
-    <div class=ptext><strong id=progress-label>0 of 55 earned</strong><span id=progress-pct>0%</span></div>
+    <div class=ptext><strong id=progress-label>0 / 55 earned</strong><span id=grade-count></span><span id=progress-pct>0%</span></div>
     <div class=bar role=progressbar aria-label="Overall completion"><i id=progress-fill></i></div>
   </div>
 </div>
@@ -41,7 +41,7 @@
       <div class=filters id=trophy-filters role=group aria-label="Trophy filters"></div>
       <div class=listmeta>
         <span id=list-count>All 55 trophies</span>
-        <label class=search><input id=trophy-search type=search placeholder="Search trophies…" autocomplete=off aria-label="Search trophies"></label>
+        <label class=search><input id=trophy-search type=search placeholder="Search name, mission, source…" autocomplete=off aria-label="Search trophies"></label>
       </div>
       <div class=trophy-list id=trophy-list tabindex=-1></div>
     </div>
@@ -50,7 +50,7 @@
 
   <section class="view split hidden" id=roadmap-view>
     <div class=roadmap id=roadmap-stages></div>
-    <aside class=sidepane id=save-guardrails aria-live=polite><!-- guardrails + source matrix --></aside>
+    <aside class=sidepane id=save-guardrails aria-live=polite></aside>
   </section>
 </main>
 

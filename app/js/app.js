@@ -1,40 +1,42 @@
-// First load: boot the shell, draw the verification audit strip, then lazy-mount the
-// 55-row list, cited guide, roadmap and backup through literal import() calls below.
+// First load: boot the shell and draw the audit strip from the data, then mount the list,
+// cited guide, roadmap and backup panes through literal import() calls.
 import { state, loadProgress, subscribe, setView, setPane, toggleSpoilerShield, resetProgress } from './state.js';
 
 const $ = (s) => document.querySelector(s);
 const mods = {};
 let doc, byId;
 
-/** Fetch the one official trophy file, then mount every view from it. */
+/** Fetch the one trophy file every view is drawn from. */
 export async function loadTrophies(url = './data/trophies.json') {
   const response = await fetch(url);
   if (!response.ok) throw new Error(`Trophy data unavailable (HTTP ${response.status})`);
   return response.json();
 }
 
-/** High-contrast audit strip under the header, computed from the loaded trophy file:
- *  official count, grades, cited guides, dated citation chips, uncited claims, offline. */
-export function renderAuditStrip(host, trophies) {
-  const grade = { platinum: 0, gold: 0, silver: 0, bronze: 0 };
-  let cited = 0, citations = 0;
+/** Count what the strip claims, from the loaded file: official total, grades, guides with
+ *  a cited source, and walkthrough steps whose cite names one of that trophy's sources. */
+export function auditTrophies(trophies) {
+  const g = { platinum: 0, gold: 0, silver: 0, bronze: 0 };
+  let guides = 0, steps = 0, cited = 0;
   for (const t of trophies) {
-    grade[t.grade] += 1;
-    if (t.sources.length) cited += 1;
-    citations += t.sources.length;
+    g[t.grade] += 1;
+    const labels = new Set(t.sources.map((s) => s.label));
+    if (t.guide.trim() && labels.size) guides += 1;
+    steps += t.steps.length;
+    cited += t.steps.filter((s) => labels.has(s.cite)).length;
   }
-  const n = trophies.length;
-  host.innerHTML = `<b><i>✓</i> ${n}/${n} OFFICIAL PS5 TROPHIES · 1P ${grade.gold}G ${grade.silver}S ${grade.bronze}B · `
-    + `${cited}/${n} CITED GUIDES · ${citations} DATED CITATIONS (NOV 2026) · ${n - cited} UNCITED CLAIMS · 100% OFFLINE</b>`;
+  return { n: trophies.length, g, guides, steps, cited };
 }
 
-async function renderList() {
-  mods.list ??= await import('./list.js');
+export function renderAuditStrip(host, trophies) {
+  const a = auditTrophies(trophies);
+  host.innerHTML = [`<i>✓</i> ${a.n}/${a.n} OFFICIAL PS5`, `${a.g.platinum}P ${a.g.gold}G ${a.g.silver}S ${a.g.bronze}B`,
+    `${a.guides}/${a.n} CITED GUIDES`, `${a.cited}/${a.steps} CITED STEPS`, `${a.steps - a.cited} UNCITED`, '100% OFFLINE']
+    .join(' <s>·</s> ');
+}
+
+async function renderPanes() {
   mods.list.renderTracker();
-}
-
-async function renderDetailPane() {
-  if (!doc) return;
   if (state.pane === 'io') {
     mods.io ??= await import('./io.js');
     mods.io.renderBackupPanel($('#trophy-detail'), doc);
@@ -42,29 +44,14 @@ async function renderDetailPane() {
     mods.detail ??= await import('./detail.js');
     mods.detail.renderTrophyDetail($('#trophy-detail'), byId.get(state.selected), doc);
   }
-}
-
-async function renderView() {
-  const view = state.view;
-  document.querySelectorAll('.tab').forEach((tab) => {
-    const on = tab.dataset.view === view;
-    tab.classList.toggle('active', on);
-    tab.setAttribute('aria-selected', String(on));
-  });
-  $('#tracker-view').classList.toggle('hidden', view !== 'tracker');
-  $('#roadmap-view').classList.toggle('hidden', view !== 'roadmap');
-  if (view === 'roadmap') {
+  const road = state.view === 'roadmap';
+  document.querySelectorAll('.tab').forEach((tab) => tab.classList.toggle('active', tab.dataset.view === state.view));
+  $('#tracker-view').classList.toggle('hidden', road);
+  $('#roadmap-view').classList.toggle('hidden', !road);
+  if (road) {
     mods.roadmap ??= await import('./roadmap.js');
-    mods.roadmap.renderRoadmap($('#roadmap-stages'), doc);
-    mods.roadmap.renderGuardrails($('#save-guardrails'), doc);
-    mods.roadmap.renderSourceMatrix($('#save-guardrails'), doc);
+    mods.roadmap.renderRoadmap($('#roadmap-stages'), $('#save-guardrails'), doc);
   }
-}
-
-function renderAll() {
-  renderList();
-  renderDetailPane();
-  renderView();
 }
 
 function bind() {
@@ -83,12 +70,11 @@ async function boot() {
   mods.list = await import('./list.js');
   mods.list.mountTracker(doc);
   bind();
-  subscribe(renderAll);
-  renderAll();
-  $('#trophy-list').scrollTop = 0;
+  subscribe(renderPanes);
+  await renderPanes();
 }
 
 boot().catch((error) => {
   console.error('Leonida Platinum Codex failed to start:', error);
-  $('#trophy-list').innerHTML = '<div class="callout"><h3>Trophy data unavailable</h3><p>Serve this folder over HTTP so the browser may read data/trophies.json.</p></div>';
+  $('#trophy-list').textContent = 'Trophy data unavailable: serve app/ over HTTP so the browser can read data/trophies.json.';
 });
