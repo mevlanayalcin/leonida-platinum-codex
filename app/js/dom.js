@@ -1,5 +1,4 @@
-// Shared view helpers: the element builder, the four grade medallions (one inline SVG sprite:
-// diamond, star, crest, shield), source chips, the per-claim cite pill and the 2+ sites pill, plus their styles.
+// Shared view helpers: element/button builders, the grade medallion sprite, cite and 2+ sites pills, styles.
 export const CHECKED = '20 Nov 2026';
 export const GRADE_LABEL = { platinum: 'Platinum', gold: 'Gold', silver: 'Silver', bronze: 'Bronze' };
 
@@ -12,12 +11,23 @@ const SPRITE = '<svg width="0" height="0" style="position:absolute" aria-hidden=
   + '<symbol id="m-bronze" viewBox="0 0 24 24"><path d="M12 1.6 20.6 4.8v6.8c0 5.1-3.6 8.9-8.6 10.8-5-1.9-8.6-5.7-8.6-10.8V4.8Z" fill="url(#gb)" stroke="#ffd9b8"/><path d="M12 6.2v11" stroke="#5c2d10" stroke-width="2" stroke-linecap="round"/></symbol>'
   + '</defs></svg>';
 
-export function el(tag, className, text) {
+/** An element with a class and children (strings become text). */
+export function el(tag, className, ...kids) {
   const node = document.createElement(tag);
   if (className) node.className = className;
-  if (text !== undefined) node.textContent = text;
+  node.append(...kids.filter((k) => k != null));
   return node;
 }
+
+/** A type=button button. */
+export function btn(className, text, onclick) {
+  const b = el('button', className, text);
+  b.type = 'button';
+  b.onclick = onclick;
+  return b;
+}
+
+export const css = (text) => document.head.append(el('style', null, text));
 
 /** Medallion markup for a grade, readable at thumbnail size by its shape and metal tone. */
 export const medal = (grade, size = 24) => `<svg class="medal" width="${size}" height="${size}" aria-hidden="true"><use href="#m-${grade}"/></svg>`;
@@ -28,30 +38,17 @@ export function gradeBadge(grade) {
   return badge;
 }
 
-export function link(className, href, text) {
-  const a = el('a', className, text);
-  a.href = href;
-  a.target = '_blank';
-  a.rel = 'noopener noreferrer';
+export function link(className, href, ...kids) {
+  const a = el('a', className, ...kids);
+  Object.assign(a, { href, target: '_blank', rel: 'noopener noreferrer' });
   return a;
-}
-
-/** One chip per source: name, the exact page cited, and a link that opens only on click. */
-export function sourceChips(parent, sources) {
-  for (const s of sources) {
-    const chip = link('src', s.url, s.label);
-    chip.title = `${s.label}: ${s.page} (checked ${CHECKED}) ${s.url}`;
-    chip.append(el('span', null, `· ${s.page} ↗`));
-    parent.append(chip);
-  }
-  return parent;
 }
 
 /** The muted pill that names one source by its catalog key and links to the exact page. */
 export function citePill(key, sources, withPage) {
-  const source = sources.find((s) => s.key === key);
-  const pill = link('citep', source.url, withPage && source.label === 'IGN Wiki' ? `IGN: ${source.page}` : source.label);
-  pill.title = `${source.label}: ${source.page} (checked ${CHECKED})`;
+  const s = sources.find((x) => x.key === key);
+  const pill = link('citep', s.url, withPage && s.label === 'IGN Wiki' ? `IGN: ${s.page}` : s.label);
+  pill.title = `${s.label}: ${s.page} (checked ${CHECKED})`;
   return pill;
 }
 
@@ -62,22 +59,18 @@ export function sitePill(n) {
   return pill;
 }
 
-const CSS = '.medal{flex:none;display:block;filter:drop-shadow(0 1px 1.5px #0009)}'
+css('.medal{flex:none;display:block;filter:drop-shadow(0 1px 1.5px #0009)}'
   + '.grade{display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 9px 0 6px;border:1px solid;border-radius:7px;font-size:11px;font-weight:850;white-space:nowrap}'
   + '.grade.platinum{color:#e4fbff;border-color:#9fe6f87a;background:#9fe6f81f}.grade.gold{color:#ffe7a6;border-color:#f2b9447a;background:#f2b9441f}'
   + '.grade.silver{color:#f1f5fc;border-color:#d3dbe773;background:#d3dbe71a}.grade.bronze{color:#ffd2b0;border-color:#d58c5a7a;background:#d58c5a1f}'
   + '.flag,.pill{display:inline-flex;align-items:center;height:21px;padding:0 7px;border-radius:6px;font-size:10px;font-weight:850;letter-spacing:.03em;text-transform:uppercase;white-space:nowrap;color:var(--muted);background:#ffffff12}'
-  + '.flag.missable,.pill.coral{color:#ffe1ea;background:#ff5c8a40;box-shadow:inset 0 0 0 1px #ff5c8aa6}'
-  + '.flag.save{color:#ffe3ad;background:#ffc0611f;box-shadow:inset 0 0 0 1px #ffc06159}'
+  + '.missable,.pill.coral{color:#ffe1ea;background:#ff5c8a40;box-shadow:inset 0 0 0 1px #ff5c8aa6}.flag.save{color:#ffe3ad;background:#ffc0611f}'
   + '.flag.tracked,.pill.teal{color:#c4fbf3;background:#38e3cf1c;box-shadow:inset 0 0 0 1px #38e3cf4d}'
-  + '.flag.cited{color:#9fe9dd;background:none;box-shadow:inset 0 0 0 1px #38e3cf40;text-transform:none;letter-spacing:0}'
-  + '.src{display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 8px;border:1px solid #38e3cf59;border-radius:7px;background:#38e3cf14;color:#d4fff8;font-size:11px;font-weight:750;text-decoration:none;white-space:nowrap}'
-  + '.src span{font-weight:500;color:#9fd9cf}'
-  + '.citep{flex:none;align-self:start;margin-top:1px;padding:1px 6px;text-transform:none;letter-spacing:0;border-radius:5px;background:#38e3cf17;color:#8fe3d6;font-size:9.8px;font-weight:750;text-decoration:none;white-space:nowrap;box-shadow:inset 0 0 0 1px #38e3cf33}'
-  + '.sitep{flex:none;align-self:start;margin-top:1px;padding:1px 5px;border-radius:5px;font-size:9px;font-weight:900;letter-spacing:.05em;text-transform:uppercase;white-space:nowrap;color:#ffd58a;background:#ffc0611a;box-shadow:inset 0 0 0 1px #ffc06159}'
+  + '.flag.cited{color:#9fe9dd;background:none;box-shadow:inset 0 0 0 1px #38e3cf40;text-transform:none}'
+  + '.citep{flex:none;padding:1px 6px;border-radius:5px;background:#38e3cf17;color:#8fe3d6;font-size:9.8px;font-weight:750;text-decoration:none;white-space:nowrap;box-shadow:inset 0 0 0 1px #38e3cf33}'
+  + '.sitep{padding:1px 5px;border-radius:5px;font-size:9px;font-weight:900;text-transform:uppercase;white-space:nowrap;color:#ffd58a;background:#ffc0611a}'
   + '.sitep.two{color:#9dffbf;background:#3ddc841a;box-shadow:inset 0 0 0 1px #3ddc8466}'
   + '.cite{color:#8ff0e2;font-weight:700;text-decoration:none;border-bottom:1px dotted #8ff0e299}'
   + '.seclabel{display:flex;justify-content:space-between;align-items:baseline;margin:9px 0 5px;font-size:10px;font-weight:850;letter-spacing:.13em;text-transform:uppercase;color:var(--dim)}'
-  + '.seclabel b{color:#9fe9dd;letter-spacing:.06em}';
-document.head.append(Object.assign(document.createElement('style'), { textContent: CSS }));
+  + '.seclabel b{color:#9fe9dd;letter-spacing:.06em}');
 document.body.insertAdjacentHTML('afterbegin', SPRITE);

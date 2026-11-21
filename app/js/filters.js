@@ -1,6 +1,5 @@
-// Filter and spoiler rules. "Missable" holds the two flagged risks (the Ch.1 balcony meditation and
-// Yago's timed Ch.3 race); "Conflicts" holds every trophy named by a source disagreement panel; "Chapter Saves" are the ten
-// trophies that mark PowerPyx's start/end-of-chapter save slots.
+// Filter and spoiler rules. "Missable": the two flagged risks; "Conflicts": trophies named by a disagreement
+// panel; "Saves": the ten trophies marking PowerPyx's chapter save slots.
 export const FILTERS = [
   { id: 'all', label: 'All', kind: 'all' },
   { id: 'story', label: 'Story', kind: 'cat' },
@@ -14,13 +13,14 @@ export const FILTERS = [
   { id: 'unearned', label: 'Unearned', kind: 'flag', test: (t, s) => !s.earned.has(t.id) },
 ];
 const byId = new Map(FILTERS.map((f) => [f.id, f]));
+const matches = (f, t, state) => (f.kind === 'cat' ? t.category === f.id : f.test(t, state));
 
 export function countFor(id, trophies, state) {
   const f = byId.get(id);
-  if (f.kind === 'all') return trophies.length;
-  return trophies.filter((t) => (f.kind === 'cat' ? t.category === id : f.test(t, state))).length;
+  return f.kind === 'all' ? trophies.length : trophies.filter((t) => matches(f, t, state)).length;
 }
 
+/** Categories OR together, flags AND together; search reads name, text, guide, steps and outlets of unmasked rows. */
 export function filterByKind(trophies, state) {
   const query = state.query.trim().toLowerCase();
   return trophies.filter((t) => {
@@ -28,18 +28,15 @@ export function filterByKind(trophies, state) {
     for (const id of state.flags) if (!byId.get(id).test(t, state)) return false;
     if (!query) return true;
     if (isMasked(t, state)) return false;
-    const text = [t.name, t.description, t.guide, t.missableNote, ...t.steps.map((s) => s.text), ...t.sources.map((s) => s.label)];
-    return text.join(' ').toLowerCase().includes(query);
+    return [t.name, t.description, t.guide, t.missableNote, ...t.steps.map((s) => s.text), ...t.sources.map((s) => s.label)]
+      .join(' ').toLowerCase().includes(query);
   });
 }
 
-/** True while a story or hidden trophy stays behind the spoiler shield: Spoiler Mode on,
- *  not earned, and not peeked. Earned trophies are never shielded. */
-export function isMasked(trophy, state) {
-  if (!state.spoiler || state.earned.has(trophy.id) || state.peek.has(trophy.id)) return false;
-  return Boolean(trophy.hidden) || trophy.category === 'story';
-}
+export const isShieldable = (t) => Boolean(t.hidden) || t.category === 'story';
 
-export const isShieldable = (trophy) => Boolean(trophy.hidden) || trophy.category === 'story';
-export const maskName = (trophy) => (trophy.category === 'story' ? 'Hidden story trophy' : 'Hidden trophy');
+/** Shielded while Spoiler Mode is on, unless earned or peeked. */
+export const isMasked = (t, state) => state.spoiler && !state.earned.has(t.id) && !state.peek.has(t.id) && isShieldable(t);
+
+export const maskName = (t) => (t.category === 'story' ? 'Hidden story trophy' : 'Hidden trophy');
 export const MASK_DESCRIPTION = 'Spoiler shielded until earned · press Peek to read it';

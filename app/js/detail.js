@@ -1,10 +1,11 @@
-// The guide inspector: official identity, missable or save-slot callout, the cited guide, the source disagreement
-// panels that name this trophy, walkthrough steps that each end in their sources and a 2+ sites / 1 site pill,
-// and the source chips.
+// The guide inspector (identity, Copy Trophy Link, missable window, SOURCES DIFFER A/B panel, progress stepper,
+// numbered steps with [n] source badges, cited guide) and the rail (Next Up, Sources for This Guide).
 import { state, toggleEarned, toggleStep, togglePeek, isStepDone } from './state.js';
 import { isMasked, maskName, MASK_DESCRIPTION } from './filters.js';
-import { el, link, gradeBadge, sourceChips, citePill, sitePill, CHECKED } from './dom.js';
+import { el, btn, css, link, gradeBadge, citePill, sitePill } from './dom.js';
 import { sites } from './verify.js';
+import { buildGuideSourceSummary, disputesFor, nextUpCard, counterFor, stepper } from './codex.js';
+import { trophyLink, copyText } from './io.js';
 
 const STAGE = { 1: 'Phase 1 · Story + missables', 2: 'Phase 2 · 100% counters', 3: 'Phase 3 · Clean-up' };
 const CATEGORY = { platinum: 'Platinum', story: 'Story', collectibles: 'Collectibles', activities: 'Activities' };
@@ -22,7 +23,7 @@ export function appendCited(parent, text, sources) {
       const s = byKey.get(k);
       // Two pages of one site in a group (two IGN pages) are told apart by page name.
       const cite = link('cite', s.url, labels.indexOf(s.label) === labels.lastIndexOf(s.label) ? s.label : `${s.label}: ${s.page}`);
-      cite.title = `${s.label}: ${s.page} (checked ${CHECKED})`;
+      cite.title = `${s.label}: ${s.page}`;
       parent.append(...(i ? [', ', cite] : [cite]));
     });
     parent.append(')');
@@ -32,152 +33,158 @@ export function appendCited(parent, text, sources) {
   return parent;
 }
 
-const pill = (text, tone) => el('span', `pill${tone ? ` ${tone}` : ''}`, text);
+const pill = (text, tone) => el('span', `pill ${tone ?? ''}`, text);
+const callout = (tone, tag, note, keys, sources) => el('div', `callout ${tone}`, el('div', 'mtag', tag, ...keys.map((k) => citePill(k, sources))), el('p', null, note));
 
-function callout(tone, tag, note, labels, sources) {
-  const box = el('div', `callout ${tone}`);
-  const head = el('div', 'mtag', tag);
-  for (const label of labels) head.append(citePill(label, sources));
-  box.append(head, el('p', null, note));
+/** A disagreement panel: one column per side (A, B, C…) with its sources, then our call. */
+export function conflictPanel(c, sources, open) {
+  const cols = el('div', 'csides');
+  cols.style.setProperty('--n', c.sides.length > 3 ? 2 : c.sides.length);
+  c.sides.forEach(([keys, says], i) => cols.append(el('div', 'cside', el('div', 'cwho', 'ABCD'[i], ...keys.map((k) => citePill(k, sources, keys.length > 1))), el('p', null, says))));
+  const box = el('details', 'conflict', el('summary', null, el('b', null, `⚖ Sources differ (${[...'ABCD'.slice(0, c.sides.length)].join(' vs ')})`), c.title),
+    cols, appendCited(el('p', 'ccall'), `Our call: ${c.call}`, sources));
+  box.open = open;
   return box;
 }
 
 function checklistBlock(trophy) {
-  const label = el('div', 'seclabel');
-  label.append(el('span', null, '100% checklist · 10 bars'), el('b', null, 'every count cited'));
   const grid = el('div', 'counters');
-  for (const [value, name, source] of trophy.checklist) {
-    const s = trophy.sources.find((x) => x.key === source);
-    const tile = link('counter', s.url);
+  for (const [value, name, key] of trophy.checklist) {
+    const s = trophy.sources.find((x) => x.key === key);
+    const tile = link('counter', s.url, el('b', null, value), el('span', null, name), el('i', null, s.label));
     tile.title = `${name}: ${value} (${s.label}, ${s.page})`;
-    tile.append(el('b', null, value), el('span', null, name), el('i', null, s.label));
     grid.append(tile);
   }
-  return [label, grid];
+  return [el('div', 'seclabel', el('span', null, '100% checklist · 10 bars'), el('b', null, 'every count cited')), grid];
 }
 
-/** One amber panel per documented disagreement: what each side says, its sources, and the call we make. */
-export function conflictPanel(c, sources, open) {
-  const box = el('details', 'conflict');
-  box.open = open;
-  const head = el('summary');
-  head.append(el('b', null, '⚖ Source disagreement'), el('span', null, c.title));
-  const rows = el('div', 'csides');
-  for (const [keys, says] of c.sides) {
-    const row = el('div', 'cside');
-    const who = el('span', 'cwho');
-    for (const k of keys) who.append(citePill(k, sources, keys.length > 1));
-    row.append(who, el('span', null, says));
-    rows.append(row);
-  }
-  box.append(head, rows, appendCited(el('p', 'ccall'), `Our call: ${c.call}`, sources));
+let toastTimer;
+export function toast(text) {
+  const box = document.querySelector('.toast') ?? document.body.appendChild(el('div', 'toast'));
+  box.setAttribute('role', 'status');
+  box.textContent = text;
+  box.classList.add('on');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => box.classList.remove('on'), 2400);
+}
+
+/** Copies #trophy=<id>; confirms in place and in a toast. */
+function copyButton(trophy) {
+  const b = btn('copylink', '⧉ Copy link', async () => {
+    const url = trophyLink(trophy.id);
+    const ok = await copyText(url);
+    b.textContent = '✓ Copied';
+    toast(ok ? `Trophy link copied · #trophy=${trophy.id}` : `Copy blocked · link: ${url}`);
+    setTimeout(() => { b.textContent = '⧉ Copy link'; }, 2200);
+  });
+  b.title = 'Copy a link that opens this trophy';
+  return b;
+}
+
+function stepsBlock(trophy, doc, number) {
+  const list = el('ol', 'steps');
+  trophy.steps.forEach((step, i) => {
+    const done = isStepDone(trophy.id, i);
+    const box = btn('sbox', done ? '✓' : String(i + 1), () => toggleStep(trophy.id, i));
+    box.setAttribute('aria-pressed', done);
+    box.setAttribute('aria-label', `Step ${i + 1} done`);
+    const text = el('span', 'stext', `${step.text} `);
+    for (const k of step.cites) {
+      const s = number.get(k);
+      const badge = link('nref', s.url, `[${s.n}]`);
+      badge.title = `${s.label}: ${s.page}`;
+      text.append(badge);
+    }
+    text.append(sitePill(sites(step.cites, doc.audit.byKey)));
+    list.append(el('li', `step${done ? ' done' : ''}`, box, text));
+  });
+  const done = (state.steps[trophy.id] ?? []).length;
+  return [el('div', 'seclabel', el('span', null, 'How to earn · every step cited'), el('b', null, `${done} / ${trophy.steps.length} done`)), list];
+}
+
+function progressBlock(trophy) {
+  const { key, goal } = counterFor(trophy);
+  const box = el('div', 'tprog', el('span', 'seclabel', 'Progress'), stepper(key, goal, trophy.name, goal >= 1000 ? 10 ** (Math.floor(Math.log10(goal)) - 1) : 1));
+  box.insertAdjacentHTML('beforeend', `<div class="mbar"><i style="width:${Math.min(100, ((state.counters[key] ?? 0) / goal) * 100)}%"></i></div>`);
   return box;
-}
-
-function earnedButton(trophy) {
-  const earned = state.earned.has(trophy.id);
-  const button = el('button', `earnedbtn${earned ? ' on' : ''}`, earned ? '✓ Earned · click to unmark' : 'Mark as earned');
-  button.type = 'button';
-  button.setAttribute('aria-pressed', String(earned));
-  button.onclick = () => toggleEarned(trophy.id);
-  return button;
 }
 
 export function renderTrophyDetail(host, trophy, doc) {
   const keep = host.dataset.trophyId === String(trophy?.id) ? host.scrollTop : 0;
-  host.dataset.trophyId = trophy ? String(trophy.id) : '';
+  host.dataset.trophyId = trophy?.id ?? '';
   host.replaceChildren();
   if (!trophy) { host.append(el('p', 'guide', 'Pick a row to read its cited walkthrough.')); return; }
-
   const masked = isMasked(trophy, state);
-  const top = el('div', 'dtop');
-  top.append(el('span', 'eyebrow', `Trophy ${trophy.id} of ${doc.trophies.length} · ${STAGE[trophy.stage]}`), gradeBadge(trophy.grade));
-  const desc = el('p', 'desc');
-  desc.append(el('b', null, 'PS5'), masked ? MASK_DESCRIPTION : trophy.description);
-  host.append(top, el('h2', null, masked ? maskName(trophy) : trophy.name), desc);
-
+  const earned = state.earned.has(trophy.id);
+  const earnedBtn = btn('earnedbtn', earned ? '✓ Earned · click to unmark (M)' : 'Mark as earned (M)', () => toggleEarned(trophy.id));
+  earnedBtn.setAttribute('aria-pressed', earned);
+  host.append(el('div', 'dtop', el('span', 'eyebrow', `Trophy ${trophy.id} of ${doc.trophies.length} · ${STAGE[trophy.stage]}`), copyButton(trophy), gradeBadge(trophy.grade)),
+    el('h2', null, masked ? maskName(trophy) : trophy.name), el('p', 'desc', el('b', null, 'PS5'), masked ? MASK_DESCRIPTION : trophy.description));
   if (masked) {
-    const shield = el('div', 'callout coral');
-    shield.append(el('div', 'mtag', 'Spoiler Mode on · shielded until earned'), el('p', null, 'Name, description and guide stay hidden. Peek reveals this one trophy only.'));
-    const peek = el('button', 'btn', 'Peek this trophy');
-    peek.type = 'button';
-    peek.onclick = () => togglePeek(trophy.id);
-    shield.append(peek);
-    host.append(shield, earnedButton(trophy));
+    host.append(el('div', 'callout coral', el('div', 'mtag', 'Spoiler Mode on · shielded until earned'),
+      el('p', null, 'Name, description and guide stay hidden. Peek reveals this one trophy only.'), btn('btn', 'Peek this trophy', () => togglePeek(trophy.id))), earnedBtn);
     return;
   }
-
-  const meta = el('div', 'dmeta');
-  meta.append(pill(CATEGORY[trophy.category], 'teal'));
-  if (trophy.count) meta.append(pill(`Tracked ${trophy.count.toLocaleString('en-US')}`));
-  if (trophy.hidden) meta.append(pill('Hidden on PS5'));
-  meta.append(pill(`${trophy.multi}/${trophy.claims.length} claims on 2+ sites`, 'green'));
-  if (trophy.conflicts.length) meta.append(pill(`${trophy.conflicts.length} dispute${trophy.conflicts.length > 1 ? 's' : ''}`, 'amber'));
-  host.append(meta);
-
-  if (trophy.missable) {
-    // Each missable carries its own chapter label and the sources that flag it, in trophies.json.
-    host.append(callout('coral', `Missable risk · ${trophy.missableLabel}`, trophy.missableNote, trophy.missableCites, trophy.sources));
-  } else if (trophy.saveSlot) {
-    host.append(callout('sun', `Chapter save · slot ${trophy.saveSlot} of 10`, trophy.missableNote, ['PPX'], trophy.sources));
-  }
-
-  // The panel about this trophy alone opens above the steps; wider panels follow them, folded.
-  const [lead, ...more] = [...trophy.conflicts].sort((a, b) => a.trophies.length - b.trophies.length);
+  const disputes = disputesFor(doc, trophy.id);
+  host.append(el('div', 'dmeta', trophy.missable ? pill(`Missable · ${trophy.missableChapter}`, 'coral') : null, pill(CATEGORY[trophy.category], 'teal'),
+    trophy.hidden ? pill('Hidden on PS5') : null, pill(`${trophy.multi}/${trophy.claims.length} claims · 2+ sites`, 'green'),
+    disputes.length ? pill(`${disputes.length} dispute${disputes.length > 1 ? 's' : ''}`, 'amber') : null));
+  if (trophy.missable) host.append(callout('coral', `Missable · ${trophy.missableLabel}`, trophy.missableNote, trophy.missableCites, trophy.sources));
+  else if (trophy.saveSlot) host.append(callout('sun', `Chapter save · slot ${trophy.saveSlot} of 10`, trophy.missableNote, ['PPX'], trophy.sources));
+  const [lead, ...more] = disputes;
   if (lead) host.append(conflictPanel(lead, doc.sources, true));
-
-  const done = (state.steps[trophy.id] ?? []).length;
-  const stepHead = el('div', 'seclabel');
-  stepHead.append(el('span', null, 'Walkthrough · every step cited'), el('b', null, `${done} / ${trophy.steps.length} done`));
-  const steps = el('div', 'steps');
-  trophy.steps.forEach((step, index) => {
-    const complete = isStepDone(trophy.id, index);
-    const row = el('div', `step${complete ? ' done' : ''}`);
-    const box = el('button', 'sbox', complete ? '✓' : '');
-    box.type = 'button';
-    box.setAttribute('aria-pressed', String(complete));
-    box.setAttribute('aria-label', `Step ${index + 1} done`);
-    box.onclick = () => toggleStep(trophy.id, index);
-    const cites = el('span', 'scites');
-    for (const k of step.cites) cites.append(citePill(k, trophy.sources));
-    cites.append(sitePill(sites(step.cites, doc.audit.byKey)));
-    row.append(box, el('span', null, step.text), cites);
-    steps.append(row);
-  });
-  const srcHead = el('div', 'seclabel');
-  srcHead.append(el('span', null, 'Cited sources'), el('b', null, `checked ${CHECKED}`));
-  host.append(stepHead, steps, ...more.map((c) => conflictPanel(c, doc.sources, false)), appendCited(el('p', 'guide'), trophy.guide, trophy.sources));
+  if (trophy.count && trophy.category !== 'story' && trophy.id !== 14) host.append(progressBlock(trophy));
+  const number = new Map(buildGuideSourceSummary(trophy, doc.sources).map((s) => [s.key, s]));
+  host.append(...stepsBlock(trophy, doc, number), ...more.map((c) => conflictPanel(c, doc.sources, false)), appendCited(el('p', 'guide'), trophy.guide, trophy.sources));
   if (trophy.checklist) host.append(...checklistBlock(trophy));
-  host.append(srcHead, sourceChips(el('div', 'srcrow'), trophy.sources), earnedButton(trophy));
+  host.append(earnedBtn);
   host.scrollTop = keep;
 }
 
-const DETAIL_CSS = '.dtop{display:flex;align-items:center;justify-content:space-between;gap:10px}'
-  + '#trophy-detail h2{margin:3px 0 2px;font-size:22px;font-weight:820;letter-spacing:-.02em;line-height:1.15}'
-  + '.desc{margin:0 0 7px;font-size:13px;color:var(--body)}.desc b{margin-right:7px;padding:1px 5px;border-radius:4px;background:#ffffff1a;font-size:9.5px;letter-spacing:.08em;color:var(--muted)}'
-  + '.dmeta,.srcrow{display:flex;flex-wrap:wrap;gap:5px}'
-  + '.callout{margin:9px 0 2px;padding:8px 11px 9px;border:1px solid;border-radius:10px}'
+/** The rail: Next Up, then each page backing this guide (outlet, page, URL, read date, claims). */
+export function renderRail(host, trophy, doc) {
+  host.replaceChildren(nextUpCard(doc));
+  if (!trophy) return;
+  const list = buildGuideSourceSummary(trophy, doc.sources, doc.audit.read);
+  const card = el('section', 'gsrc', el('div', 'seclabel', el('span', null, 'Sources for this guide'), el('b', null, `${list.length} pages`)));
+  if (isMasked(trophy, state)) card.append(el('p', 'gnote', 'Shielded with the trophy · peek to list them.'));
+  else for (const s of list) {
+    const row = link('gsrow', s.url, el('i', null, String(s.n)), el('span', null, el('b', null, `${s.label} · ${s.page}`),
+      el('small', null, `${s.url.replace(/^https:\/\/(www\.)?/, '')} · read ${s.read}`)), el('em', null, s.claims ? `${s.claims} claim${s.claims > 1 ? 's' : ''}` : s.role));
+    row.title = `${s.label}: ${s.page} · read ${s.read} · ${s.url}`;
+    card.append(row);
+  }
+  host.append(card);
+}
+
+css('.dtop{display:flex;align-items:center;gap:7px}.dtop .eyebrow{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:9.5px}'
+  + '.copylink{height:24px;padding:0 8px;border:1px solid #38e3cf59;border-radius:7px;background:#38e3cf12;font-size:11px;font-weight:800;color:#c9fdf6;white-space:nowrap}'
+  + '#trophy-detail h2{margin:3px 0 1px;font-size:21px;font-weight:820;letter-spacing:-.02em;line-height:1.15}'
+  + '.desc{margin:0 0 6px;font-size:12.8px}.desc b{margin-right:7px;padding:1px 5px;border-radius:4px;background:#ffffff1a;font-size:9.5px;color:var(--muted)}'
+  + '.dmeta{display:flex;flex-wrap:wrap;gap:4px}.callout{margin:8px 0 2px;padding:6px 10px 7px;border:1px solid;border-radius:10px}'
   + '.callout.coral{border-color:#ff5c8ab3;background:linear-gradient(135deg,#ff5c8a3d,#ff5c8a14)}.callout.sun{border-color:#ffc06173;background:#ffc0611a}'
-  + '.mtag{display:flex;align-items:center;gap:6px;margin-bottom:3px;font-size:11px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:#ffe3eb}'
-  + '.mtag .citep:first-of-type{margin-left:auto}.callout.sun .mtag{color:#ffe6b5}'
-  + '.callout p{margin:0;font-size:12.2px;line-height:1.45;color:#fff1f5}.callout .btn{margin-top:8px}'
-  + '.guide{margin:9px 0 0;font-size:12.8px;line-height:1.5;color:var(--body)}'
-  + '.steps{display:flex;flex-direction:column;gap:3px}'
-  + '.step{display:grid;grid-template-columns:18px minmax(0,1fr) auto;gap:8px;align-items:start;font-size:12px;line-height:1.4;color:#dbe3ef}'
-  + '.sbox{width:17px;height:17px;margin-top:1px;padding:0;border:1.5px solid #ffffff4d;border-radius:4px;display:grid;place-items:center;font-size:10px;font-weight:900;color:#0000}'
-  + '.step.done .sbox{background:var(--lagoon);border-color:var(--lagoon);color:#04241f}.step.done>span{color:#aab6c6}'
-  + '.earnedbtn{width:100%;height:34px;margin-top:10px;border:1px solid #38e3cf80;border-radius:9px;background:#38e3cf1f;color:#c9fdf6;font-size:12.5px;font-weight:800}'
-  + '.pill.green{color:#b8ffd0;background:#3ddc841f;box-shadow:inset 0 0 0 1px #3ddc8459}.pill.amber{color:#ffe1a6;background:#ffc06124;box-shadow:inset 0 0 0 1px #ffc06166}'
-  + '.scites{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:3px;max-width:190px}'
-  + '.conflict{margin:8px 0 2px;padding:6px 10px 7px;border:1px solid #ffb24d8c;border-left:3px solid #ffb24d;border-radius:9px;background:linear-gradient(135deg,#ffb24d24,#ff7a5c0f)}'
+  + '.mtag{display:flex;align-items:center;gap:5px;margin-bottom:2px;font-size:10.5px;font-weight:900;letter-spacing:.09em;text-transform:uppercase;color:#ffe3eb}.mtag .citep:first-of-type{margin-left:auto}'
+  + '.callout p{margin:0;font-size:12px;line-height:1.42;color:#fff1f5}.callout .btn{margin-top:8px}'
+  + '.guide{margin:8px 0 0;font-size:12.4px;color:var(--body)}.steps{display:flex;flex-direction:column;gap:3px;margin:0;padding:0;list-style:none}'
+  + '.step{display:grid;grid-template-columns:19px minmax(0,1fr);gap:7px;font-size:12px;line-height:1.42;color:#dbe3ef}'
+  + '.sbox{width:19px;height:19px;padding:0;border:1.5px solid #ffffff4d;border-radius:5px;font-size:10px;font-weight:900;color:var(--dim)}'
+  + '.step.done .sbox{background:var(--lagoon);border-color:var(--lagoon);color:#04241f}.step.done .stext{color:#aab6c6}'
+  + '.nref{margin-right:2px;font-size:10.5px;font-weight:850;color:#8ff0e2;text-decoration:none}.stext .sitep{margin-left:3px}'
+  + '.earnedbtn{width:100%;height:32px;margin-top:10px;border:1px solid #38e3cf80;border-radius:9px;background:#38e3cf1f;color:#c9fdf6;font-weight:800}'
+  + '.pill.green{color:#b8ffd0;background:#3ddc841f}.pill.amber{color:#ffe1a6;background:#ffc06124}'
+  + '.conflict{margin:7px 0 2px;padding:5px 9px 6px;border:1px solid #ffb24d8c;border-left:3px solid #ffb24d;border-radius:9px;background:#ffb24d1a}'
   + '.conflict summary{display:flex;gap:7px;align-items:baseline;cursor:pointer;font-size:11.5px;font-weight:800;color:#ffe9c7;list-style:none}'
-  + '.conflict summary b{font-size:9.5px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:#ffb24d;white-space:nowrap}'
-  + '.csides{display:flex;flex-direction:column;gap:3px;margin-top:5px}'
-  + '.cside{font-size:11.3px;line-height:1.36;color:#f6ead8}'
-  + '.cwho{display:inline-flex;gap:2px;margin-right:6px;vertical-align:1px}'
-  + '.ccall{margin:5px 0 0;padding-top:4px;border-top:1px dashed #ffb24d59;font-size:11.2px;color:#ffd9a3}'
-  + '.counters{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px}'
-  + '.counter{padding:4px 7px 5px;border:1px solid var(--line);border-radius:8px;background:#1a2440;text-decoration:none;line-height:1.2}'
-  + '.counter b{display:block;font-size:15px;font-weight:850;color:#fff}.counter span{display:block;font-size:10px;color:var(--muted);white-space:nowrap}'
-  + '.counter i{display:block;font-style:normal;font-size:9.5px;font-weight:800;color:#8fe3d6}';
-document.head.append(Object.assign(document.createElement('style'), { textContent: DETAIL_CSS }));
+  + '.conflict summary b{font-size:9.5px;font-weight:900;letter-spacing:.09em;text-transform:uppercase;color:#ffb24d;white-space:nowrap}'
+  + '.csides{display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));gap:5px;margin-top:4px}'
+  + '.cside{padding:4px 6px;border-radius:7px;background:#0b10208c}.cside p{margin:2px 0 0;font-size:11px;line-height:1.35;color:#f6ead8}'
+  + '.cwho{display:flex;flex-wrap:wrap;gap:3px;font-size:10px;font-weight:900;color:#ffb24d}'
+  + '.ccall{margin:4px 0 0;padding-top:3px;border-top:1px dashed #ffb24d59;font-size:11px;color:#ffd9a3}'
+  + '.tprog{display:grid;grid-template-columns:auto 1fr;gap:0 10px;align-items:center;margin-top:6px}.tprog .seclabel{margin:0}.tprog .cmid{justify-content:flex-end;margin:0}.tprog .mbar{grid-column:1/-1}'
+  + '.counters{display:grid;grid-template-columns:repeat(5,1fr);gap:5px}.counter{padding:4px 7px 5px;border:1px solid var(--line);border-radius:8px;background:#1a2440;text-decoration:none;line-height:1.2}'
+  + '.counter b{display:block;font-size:15px;color:#fff}.counter span{display:block;font-size:10px;color:var(--muted);white-space:nowrap}.counter i{font-style:normal;font-size:9.5px;color:#8fe3d6}'
+  + '.gsrow{display:grid;grid-template-columns:16px minmax(0,1fr) auto;gap:6px;align-items:center;padding:2px 0;border-top:1px solid var(--line2);text-decoration:none;color:var(--body)}'
+  + '.gsrow i{font-style:normal;border-radius:4px;background:#38e3cf2e;font-size:10px;font-weight:900;text-align:center;color:#c9fdf6}'
+  + '.gsrow span{min-width:0}.gsrow b,.gsrow small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.gsrow b{font-size:11.5px;font-weight:750;line-height:1.25}'
+  + '.gsrow small{font-size:9.6px;line-height:1.25;color:var(--dim)}.gsrow em{font-style:normal;font-size:10px;font-weight:850;color:#9dffbf;white-space:nowrap}.gnote{font-size:11px;color:var(--dim)}'
+  + '.toast{position:fixed;left:50%;bottom:18px;z-index:9;padding:8px 14px;border:1px solid #38e3cf99;border-radius:10px;background:#0d2a2c;color:#c9fdf6;font-size:12px;font-weight:800;opacity:0;transform:translate(-50%,8px);transition:.2s;pointer-events:none}'
+  + '.toast.on{opacity:1;transform:translate(-50%,0)}');

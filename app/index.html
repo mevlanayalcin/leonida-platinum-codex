@@ -17,11 +17,13 @@
   <nav class=viewtabs aria-label=Views>
     <button class="tab active" data-view=tracker type=button><kbd>1</kbd>Tracker</button>
     <button class=tab data-view=roadmap type=button><kbd>2</kbd>Roadmap</button>
-    <button class=tab data-view=map type=button><kbd>3</kbd>Leonida Map</button>
-    <button class=tab data-view=backup id=export-progress type=button><kbd>4</kbd>Backup</button>
+    <button class=tab data-view=map type=button><kbd>3</kbd>Map</button>
+    <button class=tab data-view=audit type=button><kbd>4</kbd>Audit</button>
+    <button class=tab data-view=backup id=export-progress type=button><kbd>5</kbd>Backup</button>
   </nav>
   <div class=masttools>
-    <button class="btn toggle" id=spoiler-toggle type=button aria-pressed=false>Spoiler Mode <b id=spoiler-state>Off</b></button>
+    <span class=saved id=saved role=status></span>
+    <button class="btn toggle" id=spoiler-toggle type=button aria-pressed=false>Spoilers <b id=spoiler-state>Off</b></button>
     <button class=btn id=reset-progress type=button>Reset</button>
   </div>
 </header>
@@ -31,16 +33,17 @@
 <main>
   <section class="view stack" id=tracker-view>
     <div class=codex id=codex-strip aria-label="Platinum command strip"></div>
-    <div class=split>
+    <div class="split tri" id=tracker-split>
       <div class=listpane>
         <div class=filters id=trophy-filters role=group aria-label="Trophy filters"></div>
         <div class=listmeta>
           <span id=list-count>All 55 trophies</span>
-          <label class=search><input id=trophy-search type=search placeholder="Search name, mission, source…  ( / )" autocomplete=off aria-label="Search trophies"></label>
+          <label class=search><input id=trophy-search type=search placeholder="Search ( / ) · J K · M" autocomplete=off aria-label="Search trophies"></label>
         </div>
         <div class=trophy-list id=trophy-list tabindex=-1></div>
       </div>
-      <aside class=sidepane id=trophy-detail aria-live=polite></aside>
+      <article class=sidepane id=trophy-detail aria-live=polite></article>
+      <aside class=rail id=trophy-rail aria-label="Next up and sources"></aside>
     </div>
   </section>
 
@@ -53,6 +56,7 @@
   </section>
 
   <section class="view hidden" id=map-view></section>
+  <section class="view hidden" id=audit-view></section>
 </main>
 
 <script type="module" src="js/app.js"></script>
