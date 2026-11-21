@@ -1,207 +1,165 @@
-// Platinum command strip (donut, PSN points, hours left, A Long Road counters) and the planning helpers the
-// guide, rail and roadmap share: the Next Up queue, per-trophy source summaries, dispute lookup, audit metrics.
-import { el, btn, medal, citePill, css, GRADE_LABEL } from './dom.js';
+// The Platinum maths: counters, hours left, roadmap order, missable windows and the audit numbers, plus the one-line
+// Platinum Progress bar above the tracker and the Next Up card in its rail. Every count is read from trophies.json.
+import { el, btn, medal, css, GRADE_LABEL } from './dom.js';
 import { state, commit, openTrophy } from './state.js';
 import { isMasked, maskName } from './filters.js';
 
-const GRADES = ['platinum', 'gold', 'silver', 'bronze'];
-export const POINTS = { platinum: 300, gold: 90, silver: 30, bronze: 15 }; // PSN points per grade
-export const BASE_HOURS = 200; // PowerPyx's ~200 h
+export const POINTS = { platinum: 300, gold: 90, silver: 30, bronze: 15 };
+/** PowerPyx's estimate (60-80 h story, ~100 h checklist, ~10 h clean-up); Push Square says up to 300 h. */
+export const BASE_HOURS = 200;
+const STAGE_HOURS = { 1: 70, 2: 100, 3: 30 };
+export const STAGES = {
+  1: ['Story & Missables', 'Ch.1–5'], 2: ['Collectibles & 100%', 'A Long Road'], 3: ['Activities & Clean-up', 'Post-game'],
+};
 
-// [key, label, 100% goal, note, trophy whose sources hold the figure, that source's key, trophy goal, trophy id]
-export const COUNTERS = [
-  ['missions', 'Missions', 100, 'any 100', 14, 'PPX'],
-  ['vehicles', 'Vehicles', 200, 'of 277', 14, 'PPX'],
-  ['animals', 'Animals', 100, 'of 255', 14, 'PPX'],
-  ['stunts', 'Stunts', 300, 'trophy 250', 15, 'I100', 250, 15],
-  ['challenges', 'Challenges', 70, 'trophy 50', 14, 'PPX', 50, 32],
-  ['ranges', 'Range golds', 42, 'all golds', 17, 'PSQ', 42, 17],
-  ['vaults', 'Bank vaults', 8, 'trophy 5', 40, 'PPX', 5, 40],
-  ['strangers', 'Strangers', 8, 'outside 100%', 25, 'PPX', 8, 25],
-];
-const LONG_ROAD = 14;
-const count = (key) => state.counters[key] ?? 0;
+// [trophy id, what its count counts, step of the +/- buttons]; the goal is the trophy's own count.
+const TABLE = [[28, 'meditations'], [15, 'stunts', 5], [17, 'range golds'], [32, 'challenges'], [25, 'strands'], [18, 'drone races'],
+  [19, 'races'], [16, 'activity types'], [30, 'card sets'], [31, 'WAiNK spots', 5], [35, 'vehicles', 5], [42, 'places', 2],
+  [43, 'gangs'], [40, 'vaults'], [54, 'garages'], [55, 'scooters'], [48, 'choices', 10], [52, '$ laundered', 10000],
+  [53, '$ spent', 5000], [14, '% complete']];
+export const COUNTERS = Object.fromEntries(TABLE.map(([id, label, unit = 1]) => [`t${id}`, { id, label, unit }]));
 
-/** The counter a trophy's stepper moves: its shared 100% bar if one tracks it, else its own `t<id>` key. */
+/** The counter a trophy carries (goal = its official count), or null. */
 export function counterFor(t) {
-  const c = COUNTERS.find((x) => x[7] === t.id);
-  return c ? { key: c[0], goal: c[6] } : { key: `t${t.id}`, goal: t.count };
+  const c = COUNTERS[`t${t.id}`];
+  return c && t.count ? { key: `t${t.id}`, goal: t.count, label: c.label, unit: c.unit } : null;
 }
 
-/** Share of a trophy done through counters; A Long Road averages its seven 100% bars. */
+/** A Long Road's 100% checklist (missions, vehicles, animals...) as counters, each with its cite key. */
+export const longRoad = (t) => (t.checklist ?? []).filter(([n]) => /^\d+$/.test(n))
+  .map(([n, label, cite]) => ({ key: `alr:${label}`, goal: Number(n), label, unit: n >= 100 ? 5 : 1, cite }));
+
+/** 0..1: earned is 1, a counter is its share, otherwise half the share of ticked steps. */
 export function counterProgress(t) {
-  if (t.id === LONG_ROAD) return COUNTERS.slice(0, 7).reduce((n, c) => n + Math.min(1, count(c[0]) / c[2]), 0) / 7;
-  if (!t.count || t.category === 'story') return 0;
-  const { key, goal } = counterFor(t);
-  return Math.min(1, count(key) / goal);
-}
-
-/** Our planning weight for a trophy, scaled so the 55 add up to the ~200 h baseline. */
-function weight(t) {
-  if (t.grade === 'platinum') return 0;
-  if (t.category === 'story') return 5;
-  const w = { gold: 30, silver: 3, bronze: 0.6 }[t.grade];
-  return w + (t.count >= 10 ? Math.min(4, Math.log10(t.count) * 1.2) : 0) + (t.group === 'strangers' ? 1.2 : 0);
+  if (state.earned.has(t.id)) return 1;
+  const c = counterFor(t);
+  if (c && state.counters[c.key]) return Math.min(1, state.counters[c.key] / c.goal);
+  return t.steps.length ? ((state.steps[t.id] ?? []).length / t.steps.length) / 2 : 0;
 }
 
 export function hoursLeft(doc) {
-  const sum = (f) => doc.trophies.reduce((n, t) => n + f(t), 0);
-  return Math.round((sum((t) => (state.earned.has(t.id) ? 0 : weight(t) * (1 - counterProgress(t)))) / sum(weight)) * BASE_HOURS);
+  const per = {};
+  for (const t of doc.trophies) per[t.stage] = (per[t.stage] ?? 0) + 1;
+  const left = doc.trophies.reduce((h, t) => h + (STAGE_HOURS[t.stage] / per[t.stage]) * (1 - counterProgress(t)), 0);
+  return Math.round(left * (BASE_HOURS / 200));
 }
 
-export const chapterOf = (t) => Number(String(t.missableChapter).replace(/\D/g, ''));
-const chapterEnd = (trophies, n) => trophies.find((t) => t.description === `Complete Chapter ${n}.`);
+/** Save slots pair up per chapter (S1-S2 = Ch.1 ... S9-S10 = Ch.5). */
+export const chapterOf = (t) => (t.saveSlot ? `Ch.${Math.min(5, Math.ceil(t.saveSlot / 2))}` : t.missableChapter ?? null);
 
-/** Roadmap order: missables whose chapter is still open, the story by save slot (Ch.4's two unslotted missions
- *  between slots 7 and 8), then the rest by phase and planning weight, platinum last. */
+/** Unearned trophies in roadmap order: missables first, then stage, save slot and list order; the platinum last. */
 export function computeNextUpTrophies(trophies, earned, limit = 4) {
-  const open = trophies.filter((t) => !earned.has(t.id));
-  const missables = open.filter((t) => t.missable && !earned.has(chapterEnd(trophies, chapterOf(t))?.id)).sort((a, b) => chapterOf(a) - chapterOf(b));
-  const story = open.filter((t) => t.category === 'story').sort((a, b) => (a.saveSlot ?? 7.5) - (b.saveSlot ?? 7.5));
-  const rest = open.filter((t) => t.category !== 'story' && !missables.includes(t))
-    .sort((a, b) => (a.grade === 'platinum') - (b.grade === 'platinum') || a.stage - b.stage || weight(b) - weight(a));
-  return [...missables.map((t) => ({ t, kind: 'missable' })), ...story.map((t) => ({ t, kind: 'story' })), ...rest.map((t) => ({ t, kind: 'free' }))].slice(0, limit);
+  const rank = (t) => [t.grade === 'platinum' ? 1 : 0, t.missable ? 0 : 1, t.stage, t.saveSlot ?? 99, t.id];
+  const cmp = (a, b) => {
+    const x = rank(a), y = rank(b);
+    const i = x.findIndex((v, j) => v !== y[j]);
+    return i < 0 ? 0 : x[i] - y[i];
+  };
+  return trophies.filter((t) => !earned.has(t.id)).sort(cmp).slice(0, limit);
 }
 
-/** A missable left unearned after its chapter ended, with the start-of-chapter save to reload. */
+/** Missables still unearned after a story trophy past their chapter has popped: [{ t, closer }]. */
 export function passedWindow(trophies, earned) {
-  const t = trophies.find((x) => x.missable && !earned.has(x.id) && earned.has(chapterEnd(trophies, chapterOf(x))?.id));
-  return t && { t, slot: chapterOf(t) * 2 - 1 };
+  const out = [];
+  for (const t of trophies) {
+    if (!t.missable || earned.has(t.id)) continue;
+    const end = 2 * Number(String(t.missableChapter).replace(/\D/g, ''));
+    const closer = trophies.find((s) => s.saveSlot >= end && earned.has(s.id));
+    if (closer) out.push({ t, closer });
+  }
+  return out;
 }
 
-/** Every page backing one trophy, numbered for the [n] badges (most claims first), with claim counts. */
+/** Each page this guide cites, with how many of its claims name that page, most-cited first. */
 export function buildGuideSourceSummary(trophy, sources, read) {
   const byKey = new Map(sources.map((s) => [s.key, s]));
-  const disputed = new Set(trophy.conflicts.flatMap((c) => c.sides.flatMap(([keys]) => keys)));
-  return trophy.sources.map((s, i) => {
-    const claims = trophy.claims.filter((c) => c.cites.includes(s.key)).length;
-    return { ...byKey.get(s.key), read, i, claims, role: claims ? '' : disputed.has(s.key) ? 'dispute side' : 'official text' };
-  }).sort((a, b) => b.claims - a.claims || a.i - b.i).map((s, i) => ({ ...s, n: i + 1 }));
+  const claims = trophy.claims ?? trophy.steps;
+  return trophy.sources.map((s) => byKey.get(s.key) ?? s)
+    .map((s) => ({ ...s, read, claims: claims.filter((c) => c.cites.includes(s.key)).length }))
+    .sort((a, b) => b.claims - a.claims || a.label.localeCompare(b.label));
 }
 
-/** The disagreement panels that name a trophy, the one about it alone first. */
-export const disputesFor = (doc, id) => doc.conflicts.filter((c) => c.trophies.includes(id)).sort((a, b) => a.trophies.length - b.trophies.length);
+export const disputesFor = (doc, id) => doc.conflicts.filter((c) => c.trophies.includes(id));
 
-/** Headline audit numbers (from verify.js's annotate) for the strip and the Audit view. */
 export function auditSummary(doc) {
   const a = doc.audit;
-  return { official: `${a.n}/${a.n}`, cited: `${a.claims}/${a.total}`, multi: `${a.multi}/${a.claims}`, rate: Math.round((a.multi / a.claims) * 100),
-    outlets: a.outlets, pages: a.pages, disputes: a.conflicts, read: a.read, uncited: a.uncited, grades: `${a.g.platinum}P ${a.g.gold}G ${a.g.silver}S ${a.g.bronze}B` };
-}
-
-/** The rail's NEXT UP card: four quick picks in roadmap order. */
-export function nextUpCard(doc) {
-  const queue = computeNextUpTrophies(doc.trophies, state.earned);
-  const card = el('section', 'nextup', el('div', 'seclabel', el('span', null, 'Next up · roadmap order'), el('b', null, `~${hoursLeft(doc)} h left`)));
-  if (!queue.length) card.append(el('p', null, 'Platinum unlocked · Vice Got a Price!'));
-  queue.forEach(({ t, kind }, i) => {
-    const b = btn(`nup ${kind}${t.id === state.selected ? ' sel' : ''}`, null, () => openTrophy(t.id));
-    b.dataset.next = t.id;
-    b.innerHTML = `<i>${i + 1}</i>${medal(t.grade, 16)}`;
-    b.append(el('span', null, el('b', null, isMasked(t, state) ? maskName(t) : t.name),
-      el('small', null, kind === 'missable' ? t.missableLabel : kind === 'story' ? `Story · ${t.saveSlot ? `save S${t.saveSlot}` : 'Ch.4'}` : `Phase ${t.stage}`)));
-    card.append(b);
-  });
-  const late = passedWindow(doc.trophies, state.earned);
-  const first = queue[0]?.kind === 'missable' && queue[0].t;
-  card.append(el('div', 'nfoot', late ? `⚑ ${late.t.missableChapter} window passed · reload S${late.slot}` : first ? 'Missable first' : null,
-    ...(first && !late ? first.missableCites.map((k) => citePill(k, first.sources)) : []), el('span', 'warn', '⚠ Cheats block trophies · no replay')));
-  return card;
-}
-
-function donut(won, total) {
-  const C = 2 * Math.PI * 38;
-  let off = 0, arcs = '';
-  for (const g of GRADES) {
-    const len = (C * won[g]) / total;
-    if (len) arcs += `<circle class="arc ${g}" r="38" cx="48" cy="48" stroke-dasharray="${len.toFixed(2)} ${(C - len).toFixed(2)}" stroke-dashoffset="${(-off).toFixed(2)}"/>`;
-    off += len;
-  }
-  const n = GRADES.reduce((s, g) => s + won[g], 0);
-  return `<svg class="donut" viewBox="0 0 96 96" role="img" aria-label="${n} of ${total} trophies earned"><circle class="track" r="38" cx="48" cy="48"/><g transform="rotate(-90 48 48)">${arcs}</g>`
-    + `<text x="48" y="47" class="dn">${n}<tspan class="dt">/${total}</tspan></text><text x="48" y="64" class="dp">${Math.round((n / total) * 100)}% earned</text></svg>`;
-}
-
-const bar = (n, goal) => `<div class="mbar"><i style="width:${Math.min(100, (n / goal) * 100)}%"></i></div>`;
-
-function codexCard(doc) {
-  const won = { platinum: 0, gold: 0, silver: 0, bronze: 0 };
-  const all = { ...won };
-  let pts = 0, max = 0;
-  for (const t of doc.trophies) {
-    all[t.grade] += 1;
-    max += POINTS[t.grade];
-    if (state.earned.has(t.id)) { won[t.grade] += 1; pts += POINTS[t.grade]; }
-  }
-  const card = el('section', 'ccard dcard');
-  card.innerHTML = `${donut(won, doc.trophies.length)}<div class="tiers"><span class="eyebrow">Platinum Codex · PS5</span><div class="tgrid">`
-    + GRADES.map((g) => `<span class="tier">${medal(g, 15)}<b>${won[g]}<i>/${all[g]}</i></b>${GRADE_LABEL[g]}</span>`).join('')
-    + `</div><div class="pts"><span><b>${pts.toLocaleString('en-US')}</b> / ${max.toLocaleString('en-US')} PSN pts</span><b>${Math.round((pts / max) * 100)}%</b>${bar(pts, max)}`
-    + `<span class="hl"><b>~${hoursLeft(doc)} h left</b> of ~${BASE_HOURS} h (PowerPyx, our weighting)</span></div></div>`;
-  return card;
-}
-
-/** A - / + stepper (Shift-click moves ten steps), clamped to 0..goal. */
-export function stepper(key, goal, label, unit = 1) {
-  const step = (d) => {
-    const b = btn('cstep', d > 0 ? '+' : '−', (e) => {
-      const n = Math.max(0, Math.min(goal, count(key) + d * unit * (e.shiftKey ? 10 : 1)));
-      if (n) state.counters[key] = n; else delete state.counters[key];
-      commit();
-    });
-    b.setAttribute('aria-label', `${d > 0 ? 'Add' : 'Remove'} ${label}`);
-    return b;
+  return {
+    official: `${a.n}/55`, grades: `${a.g.platinum}P ${a.g.gold}G ${a.g.silver}S ${a.g.bronze}B`, cited: `${a.claims}/${a.total}`,
+    uncited: a.uncited, multi: `${a.multi}/${a.claims}`, multiN: a.multi, rate: Math.round((a.multi / a.claims) * 100),
+    outlets: a.outlets, pages: a.pages, disputes: a.conflicts, read: a.read,
   };
-  const value = el('b', 'cval');
-  value.innerHTML = `${count(key).toLocaleString('en-US')}<i>/${goal.toLocaleString('en-US')}</i>`;
-  return el('div', 'cmid', step(-1), value, step(1));
 }
 
-function countersRow(doc) {
-  const label = el('div', 'lrlabel');
-  label.innerHTML = `<span class="eyebrow">A Long Road</span><b>${Math.round(counterProgress({ id: LONG_ROAD }) * 100)}%</b><small>of 7 100% bars · Shift ±10</small>`;
-  label.onclick = () => openTrophy(LONG_ROAD);
-  const grid = el('div', 'cgrid');
-  for (const [key, name, goal, note, id, cite, trophyGoal] of COUNTERS) {
-    const n = count(key);
-    const s = doc.trophies.find((t) => t.id === id).sources.find((x) => x.key === cite);
-    const ready = trophyGoal && n >= trophyGoal;
-    const mid = stepper(key, goal, name);
-    mid.prepend(el('span', 'cname', name));
-    const cell = el('div', `ctr${n >= goal ? ' full' : ready ? ' ready' : ''}`, mid);
-    cell.title = `${name}: ${n}/${goal} (${note}) · ${s.label}: ${s.page}`;
-    cell.insertAdjacentHTML('beforeend', `<small>${ready ? `✓ ${note.replace('trophy', 'ready')}` : note} · ${s.label}</small>${bar(n, goal)}`);
-    grid.append(cell);
+const nameOf = (t) => (isMasked(t, state) ? maskName(t) : t.name);
+const why = (t) => (t.missable ? `Missable · ${t.missableShort}` : `Stage ${t.stage} · ${chapterOf(t) ?? STAGES[t.stage][0]}`);
+
+/** The rail's Next Up card: passed missable windows in crimson, then the next four in roadmap order. */
+export function nextUpCard(doc) {
+  const card = el('section', 'nextup', el('h3', 'railh', 'Next up · roadmap order'));
+  for (const { t, closer } of passedWindow(doc.trophies, state.earned)) {
+    card.append(el('p', 'passed', `⚠ ${nameOf(t)}: its ${t.missableChapter} window may have closed (${nameOf(closer)} is earned).`));
   }
-  return el('section', 'ccard lroad', label, grid);
+  computeNextUpTrophies(doc.trophies, state.earned).forEach((t, i) => {
+    const row = btn(`nrow${t.missable ? ' miss' : ''}${t.id === state.selected ? ' sel' : ''}`, null, () => openTrophy(t.id));
+    row.innerHTML = `<i>${i + 1}</i>${medal(t.grade, 18)}`;
+    row.append(el('span', null, el('b', null, nameOf(t)), el('small', null, why(t))));
+    card.append(row);
+  });
+  return card;
 }
 
+const fmt = (n) => n.toLocaleString('en-US');
+
+/** − n/goal + with a bar; values persist in state.counters and travel in the JSON backup. */
+export function stepper(key, goal, label, unit = 1) {
+  const n = state.counters[key] ?? 0;
+  const set = (v) => { const x = Math.max(0, Math.min(goal, v)); if (x) state.counters[key] = x; else delete state.counters[key]; commit(); };
+  const box = el('div', `stepper${n >= goal ? ' full' : ''}`,
+    btn('sbtn', '−', () => set(n - unit)), el('b', 'sval', `${fmt(n)}/${fmt(goal)}`), el('span', 'slabel', label), btn('sbtn', '+', () => set(n + unit)),
+    el('span', 'sbar', el('em')));
+  box.querySelector('em').style.width = `${(n / goal) * 100}%`;
+  box.firstChild.setAttribute('aria-label', `One fewer ${label}`);
+  box.children[3].setAttribute('aria-label', `One more ${label}`);
+  return box;
+}
+
+/** One sleek line: earned, grades, hours left and the verification counts. */
 export function renderCodexStrip(host, doc) {
-  host.replaceChildren(codexCard(doc), countersRow(doc));
+  const n = doc.trophies.length;
+  const won = doc.trophies.filter((t) => state.earned.has(t.id));
+  const pct = Math.round((won.length / n) * 100);
+  const pts = won.reduce((p, t) => p + POINTS[t.grade], 0);
+  const all = doc.trophies.reduce((p, t) => p + POINTS[t.grade], 0);
+  const s = auditSummary(doc);
+  const bar = el('span', 'pbar', el('em'), el('b', null, `${won.length}/${n} (${pct}%)`));
+  bar.firstChild.style.width = `${Math.max(pct, 1)}%`;
+  const grades = el('span', 'pgr', ...['platinum', 'gold', 'silver', 'bronze'].map((g) => {
+    const c = el('span', g);
+    c.innerHTML = medal(g, 15);
+    c.append(`${doc.audit.g[g]}${g[0].toUpperCase()}`);
+    c.title = `${doc.trophies.filter((t) => t.grade === g && state.earned.has(t.id)).length} of ${doc.audit.g[g]} ${GRADE_LABEL[g]} earned`;
+    return c;
+  }));
+  host.title = `${fmt(pts)} of ${fmt(all)} trophy points · hours from PowerPyx's ~${BASE_HOURS} h estimate`;
+  host.replaceChildren(el('span', 'plabel', 'Platinum progress'), bar, grades, el('span', 'pk hrs', el('b', null, `~${hoursLeft(doc)} h`), ' left'),
+    el('span', 'pk ok', el('b', null, s.cited), ' cited'), el('span', 'pk ok', el('b', null, String(s.multiN)), ' on 2+ sites'),
+    el('span', 'pk', el('b', null, `${s.outlets}`), ' outlets / ', el('b', null, `${s.pages}`), ' pages'), el('span', 'pk dis', el('b', null, String(s.disputes)), ' disputes'),
+    el('span', 'pk dim', `read ${s.read.slice(0, -5)} · 100% offline`));
 }
 
-css('.codex{display:grid;grid-template-columns:330px minmax(0,1fr);gap:10px;flex:none}'
-  + '.ccard{padding:6px 12px;border:1px solid var(--line);border-radius:13px;background:linear-gradient(160deg,#18213a,#111829)}.ccard .eyebrow{font-size:9.5px}'
-  + '.dcard{display:flex;gap:10px;align-items:center;padding-left:6px;border-color:#9fe6f84d}'
-  + '.donut{width:76px;height:76px;flex:none}.donut circle{fill:none;stroke-width:9}.donut .track{stroke:#ffffff14}'
-  + '.arc.platinum{stroke:#bff1ff}.arc.gold{stroke:#ffc94d}.arc.silver{stroke:#dfe6f0}.arc.bronze{stroke:#ee9a63}'
-  + '.donut text{text-anchor:middle;fill:#fff}.dn{font-size:22px;font-weight:850}.dt{font-size:12px;fill:#98a6bb}.donut .dp{font-size:9px;font-weight:800;fill:#ffb0c6}'
-  + '.tiers{flex:1}.tgrid{display:grid;grid-template-columns:1fr 1fr;gap:0 10px;margin:2px 0 4px}'
-  + '.tier{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted)}.tier b{font-size:13.5px;color:#fff;min-width:32px}.tier i,.cval i{font-style:normal;font-size:10.5px;color:var(--dim)}'
-  + '.pts{display:grid;grid-template-columns:1fr auto;gap:3px;font-size:11px;color:var(--muted)}.pts b{color:#fff}.pts .mbar{grid-column:1/-1}'
-  + '.mbar{height:5px;border-radius:5px;background:#ffffff17;overflow:hidden}.mbar i{display:block;height:100%;background:linear-gradient(90deg,var(--lagoon),#9ff3e6)}'
-  + '.hl{grid-column:1/-1;font-size:10px;color:var(--dim)}.hl b{color:#ffd58a}'
-  + '.lroad{display:grid;grid-template-columns:88px minmax(0,1fr);gap:8px;padding:5px 8px}.cgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:3px 6px}'
-  + '.lrlabel{display:flex;flex-direction:column;justify-content:center;cursor:pointer}.lrlabel b{font-size:22px;line-height:1.05;color:#ffd58a}.lrlabel small{font-size:9.5px;color:var(--dim)}'
-  + '.ctr{padding:2px 7px 3px;border:1px solid var(--line2);border-radius:8px;background:#0d1424}.ctr.ready{border-color:#38e3cf66}.ctr.full{border-color:#38e3cfb3}'
-  + '.cname{flex:1;font-size:9.4px;font-weight:850;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'
-  + '.cmid{display:flex;align-items:center;gap:5px}.ctr small{display:block;font-size:9.3px;line-height:1.3;color:var(--dim);white-space:nowrap;overflow:hidden}.ctr.ready small{color:#9ff3e6}'
-  + '.cval{font-size:13.5px;font-weight:850;font-variant-numeric:tabular-nums}'
-  + '.cstep{width:19px;height:16px;border-radius:5px;background:#ffffff14;font-weight:800;line-height:1}.cstep:hover{background:#38e3cf40}'
-  + '.nextup .seclabel{margin-top:0;color:#ffb0c6}'
-  + '.nup{display:grid;grid-template-columns:12px 16px minmax(0,1fr);gap:7px;align-items:center;width:100%;margin-bottom:2px;padding:2px 7px;border:1px solid var(--line);border-left:3px solid var(--lagoon);border-radius:8px;background:#172036;text-align:left}'
-  + '.nup.missable{border-left-color:var(--coral)}.nup.story{border-left-color:var(--sun)}.nup.sel{background:#ff5c8a24}.nup:hover{background:#1f2a46}'
-  + '.nup>i{font-style:normal;font-size:11px;font-weight:900;color:var(--dim)}.nup span{min-width:0}'
-  + '.nup b{display:block;font-size:12.4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.nup small{display:block;font-size:10px;font-weight:750;text-transform:uppercase;color:var(--dim)}'
-  + '.nup.missable small{color:#ffb0c6}.nfoot{display:flex;flex-wrap:wrap;align-items:center;gap:3px 4px;font-size:10px;font-weight:800;color:#ffc2d3}'
-  + '.warn{padding:1px 7px;border:1px solid #ffc06180;border-radius:20px;font-size:9.8px;color:#ffe2a8;white-space:nowrap}');
+css('.codex{flex:none;display:flex;align-items:center;gap:8px;height:36px;padding:0 12px;border:1px solid #ff5c8a40;border-radius:12px;background:linear-gradient(90deg,#1c1530,#111a2d 60%);white-space:nowrap;overflow:hidden;font-size:13px}'
+  + '.plabel{font-size:10.5px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:#ffb0c6}'
+  + '.pbar{position:relative;flex:none;width:190px;height:24px;border-radius:12px;background:#ffffff14;overflow:hidden}.pbar em{position:absolute;inset:0 auto 0 0;background:linear-gradient(90deg,#ff5c8a,#ffc061)}'
+  + '.pbar b{position:relative;display:block;text-align:center;line-height:24px;font-size:13px;color:#fff;text-shadow:0 1px 2px #000}'
+  + '.pgr{display:flex;gap:6px;font-weight:850}.pgr span{display:inline-flex;align-items:center;gap:2px}'
+  + '.pk{padding:3px 9px;border-radius:9px;background:#ffffff0d;color:var(--muted)}.pk b{color:#fff}.pk.ok b{color:#7dffa8}.pk.dis b{color:#ffc061}.pk.hrs b{color:#ffd0dc}.pk.dim{background:none;color:var(--dim)}'
+  + '.railh{margin:0 0 6px;font-size:11px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:var(--lagoon)}'
+  + '.nrow{display:grid;grid-template-columns:18px 18px minmax(0,1fr);gap:7px;align-items:center;width:100%;padding:5px 6px;border-radius:9px;text-align:left}'
+  + '.nrow:hover,.nrow.sel{background:#ffffff0f}.nrow i{font-style:normal;font-size:11px;font-weight:900;color:var(--dim)}.nrow b{display:block;font-size:13px;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}'
+  + '.nrow small{display:block;font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.nrow.miss small{color:#ff9fb4;font-weight:750}'
+  + '.passed{margin:0 0 6px;padding:6px 8px;border-radius:8px;background:#ff3b5c26;color:#ffd0da;font-size:12px}'
+  + '.stepper{position:relative;display:flex;align-items:center;gap:8px;padding:4px 8px 8px;border:1px solid var(--line);border-radius:10px;background:#0d1424}'
+  + '.sbtn{width:28px;height:26px;border-radius:7px;background:#ffffff14;font-size:16px;font-weight:900}.sbtn:hover{background:#ff5c8a40}'
+  + '.sval{font-size:16px;color:#fff;font-variant-numeric:tabular-nums}.slabel{flex:1;font-size:12.5px;color:var(--muted)}'
+  + '.sbar{position:absolute;left:8px;right:8px;bottom:4px;height:3px;border-radius:2px;background:#ffffff14}.sbar em{display:block;height:100%;border-radius:2px;background:var(--lagoon)}'
+  + '.stepper.full{border-color:#38e3cf80}.stepper.full .sval{color:#7dffa8}');

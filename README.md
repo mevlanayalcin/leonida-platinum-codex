@@ -6,7 +6,20 @@
 
 An offline GTA VI trophy guide and tracker for all 55 official PS5 trophies: every official name, description and grade kept verbatim (1 platinum, 2 gold, 6 silver, 46 bronze, 28 hidden), an original guide per trophy whose every claim names each site that states it (270 of 386 claims on 2+ sites), 20 panels where the sites disagree, a Next Up queue in roadmap order, a per-guide source list, a chapter-by-chapter point-of-no-return timeline, a three-phase roadmap that maps all 55 trophies and flags 2 missable risks, an offline SVG map of Leonida, a full source audit, spoiler-safe reading and portable JSON backup. No accounts, no network calls: the whole guide is static files and progress lives in this browser.
 
-## What v8 changes (21 Nov 2026)
+## What v9 changes (21 Nov 2026)
+
+The data is unchanged (`app/data/trophies.json`: 55 trophies, 386 cited claims, 270 on 2+ sites, 40 pages on 9 sites, 20 panels). The views were redrawn so that spoiler hiding, backup and citations show up in the screenshots:
+
+- **Masthead.** An **Export / Import** button (key `5`) sits next to **Spoilers: Off/On** and Reset.
+- **One Platinum Progress line** replaces the audit pill bar and the large counter strip: earned bar, grade split, hours left, 386/386 cited, 270 on 2+ sites, 9 outlets / 40 pages, 20 disputes. All of it is computed at boot. The A Long Road counters moved to the Roadmap, with the same storage and backup.
+- **Named outlet chips.** Every step, missable callout, disagreement side and roadmap line names its outlet (`PowerPyx`, `Beebom`, `IGN Wiki`, `Push Square`, ...), colour-coded per outlet. Each chip is a plain external link that opens only when clicked.
+- **Guide pane.** It is wider with larger type. Positive Mental Attitude's 5 steps, missable callout, A vs B vs C panel, 1/18 stepper and Named sources all fit at 1280x800. The guide prose is folded under *Cited guide notes*.
+- **Roadmap.** There are three colour-banded stage cards (Story & Missables, Collectibles & 100%, Activities & Clean-up), each with a cited plan and a Next up button. Below them are the collectible counts. On the right are the crimson Missable Guardrails, the S1-S10 chapter saves and nine A Long Road counters.
+- **Backup pane.** It shows a live JSON preview, Download JSON, Copy JSON, the restored `LPC1-` share code and Import (file or paste). Imports are checked against trophies.json: unknown ids are dropped, step indexes are bounded and counters are clamped to their goals.
+- **Map + audit.** The Map view puts the Source Verification Audit (KPI tiles and per-outlet bars) beside the map, and a toggle switches to the 17 cited stops. `#view=roadmap|map|audit|backup` deep links work.
+- **Budgets.** The first load is 4 files, 4,539 bytes gzip-9, and `main.ts` now refuses anything over 4,800. The dossier text is 155,996 of 163,840 bytes with no file cut, and two builds are byte-identical. There are exactly four 1280x800 PNGs, 84-123 KiB each.
+
+## What v8 changed (21 Nov 2026)
 
 The data is unchanged from v7 (`app/data/trophies.json`: 55 trophies, 386 cited claims, 40 pages on 9 sites, 20 panels). The views were rewritten:
 

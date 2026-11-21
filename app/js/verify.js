@@ -1,7 +1,7 @@
 // Verification counts, computed at boot from trophies.json, never typed in. A claim is a walkthrough step or a
 // guide phrase ending in a (Key, Key) cite group; it is "2+ sites" when its cites name two outlets (two IGN pages
-// are one site). Draws the audit strip, the source matrix (shared with the Roadmap) and the Audit view.
-import { el, link, btn, css, CHECKED } from './dom.js';
+// are one site). Draws the source matrix, the Map view's audit column and the Audit view.
+import { el, link, btn, css, hueOf, CHECKED } from './dom.js';
 import { openTrophy } from './state.js';
 import { auditSummary } from './codex.js';
 
@@ -71,11 +71,23 @@ export function annotate(doc) {
   return doc.audit;
 }
 
-export function renderAuditStrip(host, doc) {
-  annotate(doc);
+/** The Map view's audit column: five large KPI tiles, then one bar per outlet (claims; the bright part is on 2+ sites). */
+export function auditSummaryCard(doc) {
   const s = auditSummary(doc);
-  host.innerHTML = `<span class=ok><b>✓ ${s.official}</b> official PS5</span><span>${s.grades}</span><span class=ok><b>${s.cited}</b> claims cited</span>`
-    + `<span class=ok><b>${s.multi}</b> backed by 2+ sites (${s.outlets} outlets / ${s.pages} pages)</span><span class=dis><b>${s.disputes}</b> disputes shown both ways</span><span>read ${s.read} · 100% offline</span>`;
+  const a = doc.audit;
+  const max = Math.max(...[...a.perLabel.values()].map((r) => r.claims));
+  return el('div', 'aucol', el('div', 'kpis', ...[[s.official, 'Official PS5 trophies'], [s.cited, `Claims cited · ${s.uncited} uncited`],
+    [s.multiN, `Multi-site claims · ${s.rate}%`], [`${s.outlets} / ${s.pages}`, 'Outlets / pages read'], [s.disputes, 'Disputes shown both ways']]
+    .map(([big, small], i) => el('div', `kpi k${i}`, el('b', null, String(big)), small))),
+  el('div', 'seclabel', `Claims per outlet · bright = backed by a 2nd site · read ${s.read}`),
+  ...SCOPE.map(([label, scope]) => {
+    const r = a.perLabel.get(label);
+    const row = el('div', 'obar', link(null, doc.sources.find((x) => x.label === label).url, label), el('i'), el('b', null, `${r.claims}`));
+    row.title = scope;
+    row.style.setProperty('--h', hueOf(label));
+    row.children[1].innerHTML = `<em style="width:${(r.claims / max) * 100}%"></em><u style="width:${(r.multi / max) * 100}%"></u>`;
+    return row;
+  }));
 }
 
 /** Per-outlet rows: claims, share a second site backs, disputes, read date; `pages` adds every page read. */
@@ -126,8 +138,11 @@ export function renderAuditView(host, doc) {
     el('section', 'aucard', el('div', 'seclabel', `${s.disputes} disagreement panels · sites on each side`), disputeChips(doc, true))));
 }
 
-css('.audit span{display:inline-flex;align-items:center;gap:5px;height:20px;padding:0 9px;border-radius:10px;background:#38e3cf14;box-shadow:inset 0 0 0 1px #38e3cf3d}'
-  + '.audit b{color:#fff}.ok b{color:#7dffa8!important}.audit .dis{background:#ffb24d14;box-shadow:inset 0 0 0 1px #ffb24d4d}.dis b{color:#ffc061!important}'
+css('.seclabel{margin:8px 0 4px;font-size:11px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:var(--lagoon)}.ok b{color:#7dffa8}.dis b{color:#ffc061}'
+  + '.kpis{display:grid;grid-template-columns:1fr 1fr;gap:7px}.kpi{padding:9px 13px;border-radius:12px;border:1px solid #3ddc8466;background:#3ddc841a;font-size:13px;font-weight:750;color:#d5ffe4}'
+  + '.kpi b{display:block;font-size:30px;line-height:1.1;font-weight:900;color:#fff}.k0{grid-column:1/-1;border-color:#38e3cf;background:#38e3cf24}.k4{border-color:#ffc06180;background:#ffc0611f;color:#ffe6c2}'
+  + '.obar{display:grid;grid-template-columns:128px minmax(0,1fr) 34px;gap:8px;align-items:center;height:24px;font-size:13px;font-weight:800}.obar a{text-decoration:none}'
+  + '.obar i{position:relative;height:12px;border-radius:6px;background:#ffffff0f}.obar em,.obar u{position:absolute;inset:0 auto 0 0;border-radius:6px;background:color-mix(in srgb,var(--h) 40%,transparent)}.obar u{background:var(--h)}.obar b{text-align:right}'
   + '#audit-view{display:flex;flex-direction:column;gap:10px}.auhead{display:grid;grid-template-columns:minmax(0,1fr) repeat(5,150px);gap:8px;align-items:center}.auhead h2{margin:0;font-size:21px}'
   + '.autile{padding:5px 10px;border:1px solid var(--line);border-radius:10px;background:#141c30;font-size:10.5px;font-weight:700;color:var(--muted);white-space:nowrap}.autile b{display:block;font-size:20px;line-height:1.15;color:#fff}'
   + '.augrid{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 440px;gap:12px}'

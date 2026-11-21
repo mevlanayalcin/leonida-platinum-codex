@@ -24,7 +24,7 @@ function flagsHTML(t, earned) {
   if (state.spoiler && isShieldable(t) && earned) f += '<span class="flag tracked">Unshielded</span>';
   if (state.peek.has(t.id)) f += '<button class="flag peeked" type="button" data-peek>Peeked · hide</button>';
   if (t.missable) f += '<span class="flag missable">Missable</span>';
-  if (t.conflicts.length) f += `<span class="flag conflict" title="${esc(t.conflicts.map((c) => c.title).join(' · '))}">⚖ Sources differ</span>`;
+  if (t.conflicts.length) f += `<span class="flag conflict" title="${esc(t.conflicts.map((c) => c.title).join(' · '))}">⚖ ${t.conflicts.length} differ</span>`;
   if (t.saveSlot && !state.spoiler) f += `<span class="flag save" title="Chapter save slot ${t.saveSlot}">S${t.saveSlot}</span>`;
   return f;
 }
@@ -47,9 +47,11 @@ function renderList() {
   const labels = FILTERS.filter((f) => state.cats.has(f.id) || state.flags.has(f.id)).map((f) => f.label);
   ui.count.textContent = !labels.length && !state.query.trim() ? `All ${doc.trophies.length} · PS5 order`
     : `${shown.length} of ${doc.trophies.length}${labels.length ? ` · ${labels.join(' + ')}` : ''}`;
+  const masked = shown.filter((t) => isMasked(t, state)).length;
+  if (state.spoiler) ui.count.textContent += ` · 🛡 Shield on: ${masked} masked`;
   if (state.autoScroll) {
     state.autoScroll = false;
-    ui.list.querySelector('.row.sel')?.scrollIntoView({ block: 'nearest' });
+    ui.list.querySelector('.row.sel')?.scrollIntoView({ block: 'center' });
   }
 }
 
@@ -111,9 +113,9 @@ export function mountTracker(data) {
   };
 }
 
-css('.split.tri{grid-template-columns:minmax(0,1fr) 412px 262px;gap:12px}.split.io{grid-template-columns:minmax(0,1fr) 470px}.io .rail{display:none}'
-  + '.rail{min-height:0;overflow-y:auto;padding:10px 11px;border:1px solid var(--line);border-radius:13px;background:#111a2c}'
-  + '.saved{font-size:11px;font-weight:800;color:#9dffbf;white-space:nowrap}.saved.off{color:#ffc2d3}'
+css('.rail{min-height:0;overflow-y:auto;padding:10px 11px;border:1px solid var(--line);border-radius:13px;background:#111a2c}'
+  + '.filters{display:flex;flex-wrap:wrap;gap:4px;padding:9px 10px 6px}.listmeta{display:flex;align-items:center;gap:8px;padding:0 10px 7px;border-bottom:1px solid var(--line);font-size:12px;font-weight:800;color:var(--muted)}'
+  + '.search{flex:1;display:flex}.search input{width:100%;height:28px;padding:0 10px;border:1px solid var(--line);border-radius:8px;background:#0a101d;color:#fff;font:13px var(--font)}'
   + '.chip{display:inline-flex;align-items:center;gap:4px;height:27px;padding:0 6px;border:1px solid var(--line);border-radius:8px;background:#1a2339;color:var(--body);font-size:11px;font-weight:750;white-space:nowrap}'
   + '.chip b{font-size:10.5px;color:var(--dim)}.chip[aria-pressed=true]{color:#fff;border-color:#ff5c8aa6;background:#ff5c8a33}'
   + '.k-flag[aria-pressed=true]{border-color:#38e3cf99;background:#38e3cf26}'

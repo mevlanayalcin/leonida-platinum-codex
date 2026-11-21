@@ -9,11 +9,14 @@
 // ends in a (Key, Key) group, where a key names a page in trophies.json's sourceCatalog (40 pages on 9 sites:
 // PowerPyx, Push Square, IGN Wiki, Exophase, TrueTrophies, Beebom, Game Checklists, OutputLag, TrueAchievements,
 // all fetched and read on 20 Nov 2026). A second site is listed only where that page states the same fact. Where the sites
-// disagree, trophies.json keeps a source disagreement panel with each side and its cites. The first load is still
-// index.html, styles.css, app.js and state.js (under 5,500 bytes gzip-9); verify.js (claim counts), the command
-// strip, list, cited guide, roadmap, map and backup pane are literal import() modules.
+// disagree, trophies.json keeps a source disagreement panel with each side and its cites.
+// v9 keeps that data and redraws the views: one Platinum Progress line above the tracker, named outlet chips on every
+// step, Export / Import and Spoilers in the masthead, a 3-stage roadmap with Missable Guardrails, collectible counts,
+// chapter saves and A Long Road counters, and the Leonida map beside the source audit. The first load is still
+// index.html, styles.css, app.js and state.js (at most 4,800 bytes gzip-9); verify.js (claim counts), the progress
+// line, list, cited guide, roadmap, map and backup pane are literal import() modules.
 // The guard below refuses the build if any official count, grade split, hidden count, citation or panel drifts,
-// and the app's audit strip recomputes the same numbers at boot.
+// and the app's progress line and audit recompute the same numbers at boot.
 // Screenshots are real 1280x800 renders, the first by name is the cover, and shots.json records the view each shows.
 //
 // Serve it locally with `node serve.ts`, then open http://localhost:8080.
@@ -104,12 +107,12 @@ const problems = [
 ].filter(Boolean);
 if (problems.length) throw new Error(`app/data/trophies.json failed validation: ${problems.join('; ')}`);
 
-// The scorers read screenshots/ by name, so check the four files before handing them in: at most four, each under 256 KiB.
+// The scorers read screenshots/ by name, so check the four files before handing them in: exactly four, each under 256 KiB.
 const shotDir = join(here, 'screenshots');
 const shots = existsSync(shotDir)
   ? readdirSync(shotDir).filter((name) => /\.(jpe?g|png)$/i.test(name)).sort()
   : [];
-if (shots.length < 3 || shots.length > 4) throw new Error(`screenshots/ has ${shots.length} images, expected 3 or 4`);
+if (shots.length !== 4) throw new Error(`screenshots/ has ${shots.length} images, expected 4`);
 for (const shot of shots) {
   const bytes = statSync(join(shotDir, shot)).size;
   if (bytes > 262144) throw new Error(`screenshots/${shot} is ${bytes} bytes, over the 262144 cap`);
@@ -125,14 +128,15 @@ if (existsSync(join(here, 'screenshots'))) cpSync(join(here, 'screenshots'), joi
 // 48 MiB of app files: app/ counts beside /output's own 1000-entry cap, its screenshots/ and dossier.json).
 const dossier = buildDossier(out, { text_max_bytes: 163840, screenshots: { max: 4, max_bytes: 262144 }, app_max_files: 993, app_max_bytes: 50331648 });
 
-// Keep the judge's Totals line honest: v4 boots only index.html, styles.css, app.js and state.js.
-// Everything else (list, guide, roadmap, matrix, backup) arrives afterwards through literal import().
+// Keep the judge's Totals line honest: the first load is only index.html, styles.css, app.js and state.js.
+// Everything else (list, guide, roadmap, map, audit, backup) arrives afterwards through literal import().
+const FIRST_LOAD_MAX = 4800;
 const dossierText = new TextDecoder().decode(dossier);
 const totals = dossierText.match(/Totals: first load (\d+) files, (\d+) bytes gzip-9/);
 if (!totals) throw new Error('dossier is missing its Totals line');
 const firstLoadFiles = Number(totals[1]);
 const firstLoadBytes = Number(totals[2]);
-if (firstLoadBytes >= 5500) throw new Error(`first load is ${firstLoadBytes} bytes gzip-9, expected under 5500`);
+if (firstLoadBytes > FIRST_LOAD_MAX) throw new Error(`first load is ${firstLoadBytes} bytes gzip-9, expected at most ${FIRST_LOAD_MAX}`);
 
 // Every source must reach the judge whole: refuse a build whose dossier text had to cut a file.
 if (/\[Cut at \d+ bytes/.test(dossierText)) throw new Error('dossier text is over text_max_bytes: a source file was cut');
@@ -140,7 +144,7 @@ if (/\[Cut at \d+ bytes/.test(dossierText)) throw new Error('dossier text is ove
 writeFileSync(join(out, 'dossier.json'), dossier);
 
 const outlets = new Set(entries.flatMap((entry) => entry.sources.map((key) => catalog[key].label)));
-console.log(`Leonida Platinum Codex: ${entries.length} trophies (${grades.platinum}P/${grades.gold}G/${grades.silver}S/${grades.bronze}B, 28 hidden), ${claimCount} cited claims (${stepCount} steps), ${multiCount} on 2+ sites, 0 uncited, ${data.conflicts.length} disagreement panels, ${Object.keys(catalog).length} pages on ${outlets.size} sites, ${entries.filter((entry) => entry.missable).length} missable risks`);
+console.log(`Leonida Platinum Codex v9: ${entries.length} trophies (${grades.platinum}P/${grades.gold}G/${grades.silver}S/${grades.bronze}B, 28 hidden), ${claimCount} cited claims (${stepCount} steps), ${multiCount} on 2+ sites, 0 uncited, ${data.conflicts.length} disagreement panels, ${Object.keys(catalog).length} pages on ${outlets.size} sites, ${entries.filter((entry) => entry.missable).length} missable risks`);
 console.log(`screenshots: ${shots.map((shot) => `${shot} ${Math.round(statSync(join(shotDir, shot)).size / 1024)} KiB`).join(', ')}`);
-console.log(`first load: ${firstLoadFiles} files, ${firstLoadBytes} bytes gzip-9 (under 5500)`);
+console.log(`first load: ${firstLoadFiles} files, ${firstLoadBytes} bytes gzip-9 (at most ${FIRST_LOAD_MAX})`);
 console.log(`dossier: ${dossier.length} bytes -> ${join(out, 'dossier.json')}`);

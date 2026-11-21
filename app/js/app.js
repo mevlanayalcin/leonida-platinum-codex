@@ -1,5 +1,5 @@
-// First load: expand trophies.json, count claims for the audit strip (verify.js), honour a #trophy=<id> link
-// (io.js), then render every view through literal import().
+// First load: expand trophies.json, count its claims (verify.js), honour a #trophy=<id> or #view=<name> link (io.js),
+// then render the active view through literal import().
 import { state, loadProgress, subscribe, hydrate } from './state.js';
 
 const $ = (s) => document.querySelector(s);
@@ -38,7 +38,7 @@ async function boot() {
   doc = hydrate(await loadTrophies());
   byId = new Map(doc.trophies.map((t) => [t.id, t]));
   mods.verify = await import('./verify.js');
-  mods.verify.renderAuditStrip($('#audit-strip'), doc);
+  mods.verify.annotate(doc);
   mods.io = await import('./io.js');
   mods.io.bindHash(byId);
   mods.list = await import('./list.js');

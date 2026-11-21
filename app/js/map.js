@@ -1,6 +1,8 @@
-// Leonida Map: an original stylized SVG of six regions (not to scale, no tiles) with a pin per place a cited step
-// names. Chips and regions filter pins and checklist; hover shows a pin's tooltip, click pins it with a guide link.
+// Leonida Collectibles Map: an original stylized SVG of six regions (not to scale, no tiles) with a pin per place a
+// cited step names. Chips and regions filter pins and checklist; hover shows a pin's tooltip, click pins it with a
+// guide link. Beside it: the verification audit (default) or the checklist of cited stops.
 import { el, btn, css, medal, citePill } from './dom.js';
+import { auditSummaryCard } from './verify.js';
 import { state, toggleEarned, openTrophy } from './state.js';
 import { isMasked, maskName } from './filters.js';
 
@@ -48,7 +50,7 @@ const CATS = [
   ['strangers', 'Strangers & Freaks', '#38e3cf', [25, 22, 23, 24, 26, 27, 29]],
   ['sights', 'Story & Sights', '#8fb8ff', [2, 8, 37, 44, 51, 33, 42]],
 ];
-const view = { cat: 'all', region: null, pinned: null };
+const view = { cat: 'all', region: null, pinned: null, side: 'audit' };
 let last;
 
 const catOf = (id) => CATS.find((c) => c[3]?.includes(id)) ?? CATS[0];
@@ -125,13 +127,16 @@ function listRow({ t, region, place, step }, n) {
   return row;
 }
 
-function listPane(rows) {
+function listPane(rows, doc) {
   const won = rows.filter((r) => state.earned.has(r.t.id)).length;
+  const audit = view.side === 'audit';
+  const tab = (id, text) => { const b = btn('chip', text, () => rerender({ side: id })); b.setAttribute('aria-pressed', view.side === id); return b; };
   return el('aside', 'sidepane mlist',
-    el('div', 'mhead2', el('span', 'eyebrow', `${view.region ? NAME[view.region] : 'All of Leonida'} · ${CATS.find((c) => c[0] === view.cat)[1]}`),
+    el('div', 'mtabs', tab('audit', 'Source verification'), tab('stops', `${rows.length} cited stops`)),
+    audit ? el('div', 'mhead2', el('span', 'eyebrow', 'Every claim traced to a named outlet page'), el('h2', null, 'Source Verification Audit')) : el('div', 'mhead2', el('span', 'eyebrow', `${view.region ? NAME[view.region] : 'All of Leonida'} · ${CATS.find((c) => c[0] === view.cat)[1]}`),
       el('h2', null, `${rows.length} cited stop${rows.length === 1 ? '' : 's'} · ${won} earned`), view.region ? btn('btn', `✕ ${NAME[view.region]}`, () => rerender({ region: null })) : null),
-    rows.length ? '' : el('p', 'guide', 'No cited place in this region for these chips yet. Grassrivers has none in our sources; pick another region or All pins.'),
-    ...rows.map((r, i) => listRow(r, i + 1)));
+    audit ? auditSummaryCard(doc) : rows.length ? '' : el('p', 'guide', 'No cited place in this region for these chips yet. Grassrivers has none in our sources; pick another region or All pins.'),
+    ...(audit ? [] : rows.map((r, i) => listRow(r, i + 1))));
 }
 
 export function renderMap(host, doc) {
@@ -148,8 +153,8 @@ export function renderMap(host, doc) {
   const wrap = el('div', 'mwrap');
   wrap.innerHTML = `${mapSVG(rows)}<div class="mtipbox" role="tooltip"></div>`;
   const card = el('section', 'mapcard',
-    el('div', 'maphead', el('div', null, el('span', 'eyebrow', 'Collectibles, meditation spots & activities · field map'), el('h2', null, 'Leonida Map')),
-      el('span', 'scount', `${PINS.length} pins from cited steps · hover or click a pin · stylized, 0 tiles`)),
+    el('div', 'maphead', el('div', null, el('span', 'eyebrow', 'Original stylized field map · 0 tiles'), el('h2', null, 'Leonida Collectibles Map')),
+      el('span', 'scount', `${PINS.length} cited pins · hover or click`)),
     chips, wrap);
   const svg = wrap.querySelector('svg');
   const pinAt = (e) => e.target.closest?.('[data-pin]');
@@ -171,13 +176,13 @@ export function renderMap(host, doc) {
     else if (e.target.dataset?.region) region(e.target.dataset.region);
   };
   const keep = host.querySelector('.mlist')?.scrollTop ?? 0;
-  host.replaceChildren(card, listPane(rows));
+  host.replaceChildren(card, listPane(rows, doc));
   host.querySelector('.mlist').scrollTop = keep;
   const hot = view.pinned && svg.querySelector('.pin.hot');
   if (hot) showTip(wrap, hot, doc, true);
 }
 
-css('#map-view{display:grid;grid-template-columns:minmax(0,1fr) 480px;gap:14px}'
+css('#map-view{display:grid;grid-template-columns:minmax(0,1fr) 470px;gap:14px}.mtabs{display:flex;gap:5px;margin-bottom:8px}'
   + '.mapcard{display:flex;flex-direction:column;min-height:0;padding:10px 14px;border:1px solid #38e3cf4d;border-radius:13px;background:linear-gradient(160deg,#18213a,#111829)}'
   + '.maphead{display:flex;justify-content:space-between;align-items:flex-end;gap:10px}.maphead h2,.mhead2 h2{margin:0;font-size:21px;font-weight:840;line-height:1.2}'
   + '.mchips{display:flex;flex-wrap:wrap;gap:4px;margin:7px 0}.mchips .chip{gap:6px}.mchips .chip:before{content:"";width:8px;height:8px;border-radius:50%;background:var(--c)}'

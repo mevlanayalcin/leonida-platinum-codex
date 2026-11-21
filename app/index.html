@@ -19,20 +19,18 @@
     <button class=tab data-view=roadmap type=button><kbd>2</kbd>Roadmap</button>
     <button class=tab data-view=map type=button><kbd>3</kbd>Map</button>
     <button class=tab data-view=audit type=button><kbd>4</kbd>Audit</button>
-    <button class=tab data-view=backup id=export-progress type=button><kbd>5</kbd>Backup</button>
   </nav>
   <div class=masttools>
     <span class=saved id=saved role=status></span>
-    <button class="btn toggle" id=spoiler-toggle type=button aria-pressed=false>Spoilers <b id=spoiler-state>Off</b></button>
+    <button class="btn io tab" data-view=backup id=export-progress type=button><kbd>5</kbd>⇅ Export / Import</button>
+    <button class="btn toggle" id=spoiler-toggle type=button aria-pressed=false>🛡 Spoilers: <b id=spoiler-state>Off</b></button>
     <button class=btn id=reset-progress type=button>Reset</button>
   </div>
 </header>
 
-<div class=audit id=audit-strip role=status aria-label="Verification audit"></div>
-
 <main>
   <section class="view stack" id=tracker-view>
-    <div class=codex id=codex-strip aria-label="Platinum command strip"></div>
+    <div class=codex id=codex-strip aria-label="Platinum progress"></div>
     <div class="split tri" id=tracker-split>
       <div class=listpane>
         <div class=filters id=trophy-filters role=group aria-label="Trophy filters"></div>
@@ -46,15 +44,7 @@
       <aside class=rail id=trophy-rail aria-label="Next up and sources"></aside>
     </div>
   </section>
-
-  <section class="view stack hidden" id=roadmap-view>
-    <div id=story-timeline></div>
-    <div class=split>
-      <div class=roadmap id=roadmap-stages></div>
-      <aside class=sidepane id=save-guardrails aria-live=polite></aside>
-    </div>
-  </section>
-
+  <section class="view hidden" id=roadmap-view><div class=roadmap id=roadmap-stages></div><aside class=rmside id=save-guardrails aria-live=polite></aside></section>
   <section class="view hidden" id=map-view></section>
   <section class="view hidden" id=audit-view></section>
 </main>
